@@ -21,26 +21,33 @@ function sleep(ms: number) {
 async function main() {
   console.log(`FLASHCUT smoke → ${BASE}\n`);
 
+  const teamPassword = process.env.ROOM_PASSWORD?.trim();
+  const authBody = teamPassword ? { password: teamPassword } : {};
+  const hostPin = "4242";
+
   const created = await api<{
     code: string;
     hostToken: string;
   }>("/api/rooms", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ packId: "starter-01" }),
+    body: JSON.stringify({ packId: "starter-01", hostPin, ...authBody }),
   });
   if (!created.ok) throw new Error("create room failed");
   const { code, hostToken } = created.data;
   console.log(`Room ${code}`);
 
-  const hostAuth = { Authorization: `Bearer ${hostToken}` };
+  const hostAuth = {
+    Authorization: `Bearer ${hostToken}`,
+    "X-Flashcut-Host-Pin": hostPin,
+  };
 
   const p1 = await api<{ playerToken: string; nickname: string }>(
     `/api/rooms/${code}/join`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: "SmokeA" }),
+      body: JSON.stringify({ nickname: "SmokeA", ...authBody }),
     },
   );
   const p2 = await api<{ playerToken: string; nickname: string }>(
@@ -48,7 +55,7 @@ async function main() {
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: "SmokeB" }),
+      body: JSON.stringify({ nickname: "SmokeB", ...authBody }),
     },
   );
   if (!p1.ok || !p2.ok) throw new Error("join failed");

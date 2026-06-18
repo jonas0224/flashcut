@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync } from "fs";
 import { join } from "path";
 import { PHASE_MS, ROUND_COUNT } from "@/lib/constants";
-import { advanceRoomOnce, phaseEndsAt, shouldAdvance } from "@/lib/phase-engine";
+import { advanceRoomOnce, allPlayersAnswered, phaseEndsAt, shouldAdvance, skipPhase } from "@/lib/phase-engine";
 import { validatePack, validateRound, starterPack } from "@/lib/packs";
 import { getRoomPack } from "@/lib/room-pack";
 import { scoreRound } from "@/lib/scoring";
@@ -65,12 +65,66 @@ describe("phase engine", () => {
     expect(phaseEndsAt(room, 1000)).toBe(1000 + PHASE_MS.peek);
   });
 
+  it("does not auto-advance reveal (host-controlled)", () => {
+    const reveal = { ...baseRoom(), phase: "reveal" as const };
+    const pastReveal = 1000 + PHASE_MS.reveal + 1;
+    expect(shouldAdvance(reveal, pastReveal)).toBe(false);
+  });
+
+  it("auto-advances countdown to peek", () => {
+    const room = { ...baseRoom(), phase: "countdown" as const };
+    const now = 1000 + PHASE_MS.countdown + 1;
+    expect(shouldAdvance(room, now)).toBe(true);
+    const next = advanceRoomOnce(room, starterPack as never, now);
+    expect(next.phase).toBe("peek");
+  });
+
+  it("host skip from reveal starts next round at countdown", () => {
+    const room = { ...baseRoom(), phase: "reveal" as const, roundIndex: 0 };
+    const next = skipPhase(room, starterPack as never, 2000);
+    expect(next.roundIndex).toBe(1);
+    expect(next.phase).toBe("countdown");
+  });
+
   it("advances peek to flashcut", () => {
     const room = baseRoom();
     const now = 1000 + PHASE_MS.peek + 1;
     expect(shouldAdvance(room, now)).toBe(true);
     const next = advanceRoomOnce(room, starterPack as never, now);
     expect(next.phase).toBe("flashcut");
+  });
+
+  it("does not end guess early until every player has answered", () => {
+    const room = {
+      ...baseRoom(),
+      phase: "guess" as const,
+      players: {
+        ...baseRoom().players,
+        p2: {
+          id: "p2",
+          nickname: "B",
+          token: "t2",
+          totalScore: 0,
+          roundsCorrect: 0,
+          joinedAt: 1,
+        },
+      },
+      answers: { p1: { choice: "A", lockedAt: 1500 } },
+    };
+    expect(allPlayersAnswered(room)).toBe(false);
+    expect(shouldAdvance(room, 1500)).toBe(false);
+  });
+
+  it("ends guess early when all players have answered", () => {
+    const room = {
+      ...baseRoom(),
+      phase: "guess" as const,
+      answers: { p1: { choice: "A", lockedAt: 1500 } },
+    };
+    expect(allPlayersAnswered(room)).toBe(true);
+    expect(shouldAdvance(room, 1500)).toBe(true);
+    const next = advanceRoomOnce(room, starterPack as never, 1500);
+    expect(next.phase).toBe("reveal");
   });
 });
 
@@ -91,6 +145,15 @@ describe("validatePack", () => {
     const round: RoundDefinition = {
       ...(starterPack.rounds[0] as RoundDefinition),
       imageUrl: "/uploads/TEST01/round-0.jpg",
+    };
+    expect(validateRound(round)).toEqual([]);
+  });
+
+  it("allows Vercel Blob image URLs", () => {
+    const round: RoundDefinition = {
+      ...(starterPack.rounds[0] as RoundDefinition),
+      imageUrl:
+        "https://abc.public.blob.vercel-storage.com/flashcut/TEST01/round-0.jpg",
     };
     expect(validateRound(round)).toEqual([]);
   });

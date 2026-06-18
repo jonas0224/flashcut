@@ -1,22 +1,24 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { AnswerResult } from "@/components/AnswerResult";
-import { GameImage, RevealImages } from "@/components/GameImage";
+import { useEffect, useRef, useState } from "react";
+import { ChoiceButton } from "@/components/ChoiceButton";
+import { FlashcutPanel } from "@/components/FlashcutPanel";
+import { GameHeader } from "@/components/GameHeader";
+import { GameImage } from "@/components/GameImage";
 import { PageShell } from "@/components/PageShell";
 import { PhaseBar } from "@/components/PhaseBar";
 import { PhasePanel } from "@/components/PhasePanel";
-import { StandingsList } from "@/components/StandingsList";
+import { RoundCountdown } from "@/components/RoundCountdown";
 import { useRoomPoll } from "@/hooks/useRoomPoll";
 import { PHASE_MS } from "@/lib/constants";
 import { getPlayerSession } from "@/lib/client";
 
 const PHASE_LABELS = {
+  countdown: "Get ready",
   peek: "Look closely!",
   flashcut: "FLASHCUT",
   guess: "Pick your answer",
-  reveal: "Reveal",
 } as const;
 
 export default function PlayerRoomPage() {
@@ -26,6 +28,7 @@ export default function PlayerRoomPage() {
   const [token, setToken] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const guessRoundRef = useRef(-1);
 
   useEffect(() => {
     const session = getPlayerSession(code);
@@ -41,25 +44,42 @@ export default function PlayerRoomPage() {
   useEffect(() => {
     if (state?.status === "lobby") router.replace(`/join/${code}`);
     if (state?.status === "finished") router.replace(`/room/${code}/results`);
-  }, [state?.status, code, router]);
+    if (state?.status === "playing" && state.phase === "reveal") {
+      router.replace(`/room/${code}/rankings`);
+    }
+  }, [state?.status, state?.phase, code, router]);
 
   useEffect(() => {
-    if (state?.phase === "guess") setSelected(null);
+    if (state?.phase !== "guess") return;
+    if (state.roundIndex === guessRoundRef.current) return;
+    guessRoundRef.current = state.roundIndex;
+    setSelected(null);
   }, [state?.roundIndex, state?.phase]);
 
   async function submitChoice(choice: string) {
-    if (!token || state?.phase !== "guess") return;
+    if (!token || state?.phase !== "guess" || selected !== null) return;
     setSelected(choice);
     setSubmitting(true);
     try {
-      await fetch(`/api/rooms/${code}/answer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ choice }),
-      });
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const res = await fetch(`/api/rooms/${code}/answer`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ choice }),
+        });
+        if (res.ok) return;
+        const data = (await res.json().catch(() => null)) as {
+          code?: string;
+        } | null;
+        if (data?.code === "WRONG_PHASE" && attempt < 3) {
+          await new Promise((r) => setTimeout(r, 120));
+          continue;
+        }
+        return;
+      }
     } finally {
       setSubmitting(false);
     }
@@ -69,7 +89,7 @@ export default function PlayerRoomPage() {
     return (
       <PageShell>
         <main className="flex flex-1 items-center justify-center">
-          <p className="text-xl font-bold text-blue-700">Loading…</p>
+          <p className="text-xl font-bold text-white">Loading…</p>
         </main>
       </PageShell>
     );
@@ -83,106 +103,86 @@ export default function PlayerRoomPage() {
 
   return (
     <PageShell>
-      <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col px-4 py-4 sm:px-6 sm:py-5">
-        <header className="mb-4 flex items-center justify-between gap-4">
-          <span className="fc-chip">
-            Round {state.roundIndex + 1}/{state.roundCount}
-          </span>
-          <span className="fc-badge text-lg">{score} pts</span>
-        </header>
+      <main className="mx-auto flex w-full max-w-3xl flex-col px-4 py-4 sm:px-6 sm:py-5">
+        <GameHeader
+          roundIndex={state.roundIndex}
+          roundCount={state.roundCount}
+          nickname={me?.nickname ?? "You"}
+          score={score}
+        />
 
-        {state.phase !== "flashcut" && (
-          <div className="mb-4 fc-phase-enter">
-            <PhaseBar
-              phaseEndsAt={state.phaseEndsAt}
-              durationMs={phaseDuration}
-              label={PHASE_LABELS[state.phase]}
-            />
-          </div>
+        {state.phase !== "flashcut" &&
+          state.phase !== "countdown" &&
+          state.phase !== "reveal" && (
+            <div className="mb-4 fc-phase-enter">
+              <PhaseBar
+                phaseEndsAt={state.phaseEndsAt}
+                durationMs={phaseDuration}
+                label={PHASE_LABELS[state.phase]}
+                urgentLastSeconds={state.phase === "guess" ? 3 : 0}
+              />
+            </div>
+          )}
+
+        {state.phase === "countdown" && (
+          <RoundCountdown
+            phaseStartedAt={state.phaseStartedAt}
+            phaseEndsAt={state.phaseEndsAt}
+            durationMs={phaseDuration}
+            roundLabel={`Round ${state.roundIndex + 1}`}
+          />
         )}
 
         {state.phase === "peek" && state.imageUrl && state.imageMode && (
-          <PhasePanel phaseKey={phaseKey} className="flex flex-1 flex-col">
-            <p className="animate-pop mb-3 text-center text-2xl font-black text-blue-700">
+          <PhasePanel phaseKey={phaseKey} className="flex flex-col">
+            <p className="mb-4 text-center text-2xl font-black text-blue-800">
               Look closely!
             </p>
             <GameImage
               imageUrl={state.imageUrl}
               mode={state.imageMode}
               crop={state.crop}
+              entrance="peek"
             />
           </PhasePanel>
         )}
 
         {state.phase === "flashcut" && (
-          <PhasePanel
-            phaseKey={phaseKey}
-            className="fc-flashcut-enter flex min-h-[55dvh] flex-1 flex-col items-center justify-center rounded-3xl border-2 border-blue-200 bg-white shadow-xl"
-          >
-            <p className="text-6xl font-black tracking-tight text-blue-900 sm:text-7xl">
-              FLASHCUT
-            </p>
-            <p className="fc-subtext mt-4 text-2xl font-bold">
-              What was it?
-            </p>
+          <PhasePanel phaseKey={phaseKey} panel={false}>
+            <FlashcutPanel
+              phaseEndsAt={state.phaseEndsAt}
+              durationMs={phaseDuration}
+            />
           </PhasePanel>
         )}
 
         {state.phase === "guess" && state.choices && (
           <PhasePanel
             phaseKey={phaseKey}
-            className="flex flex-1 flex-col gap-3 sm:gap-4"
+            panel={false}
+            className="fc-guess-panel flex flex-col gap-3 sm:gap-3.5"
           >
-            <p className="text-center text-sm font-semibold text-blue-500">
+            <p className="fc-choice-hint">
               Faster answers earn more points (up to 1,000)
             </p>
-            {state.choices.map((choice) => {
-              const isSelected = selected === choice;
-              const isDimmed = selected !== null && !isSelected;
-              return (
-                <button
+            <div className="flex flex-col gap-3 sm:gap-3.5">
+              {state.choices.map((choice, index) => (
+                <ChoiceButton
                   key={choice}
-                  type="button"
+                  index={index}
+                  choice={choice}
+                  selected={selected === choice}
+                  dimmed={selected !== null && selected !== choice}
                   disabled={submitting || selected !== null}
-                  onClick={() => void submitChoice(choice)}
-                  className={`min-h-[4.5rem] flex-1 rounded-2xl border px-5 py-4 text-left text-lg font-bold transition-all duration-300 sm:min-h-[5rem] sm:text-xl ${
-                    isSelected
-                      ? "fc-choice-selected fc-choice-lock"
-                      : isDimmed
-                        ? "fc-input border-blue-100 opacity-40"
-                        : "fc-input hover:border-blue-400 hover:shadow-md"
-                  }`}
-                >
-                  {choice}
-                </button>
-              );
-            })}
-          </PhasePanel>
-        )}
-
-        {state.phase === "reveal" && state.imageUrl && state.imageMode && (
-          <PhasePanel phaseKey={phaseKey} className="flex flex-1 flex-col gap-5">
-            <AnswerResult
-              yourAnswer={state.yourAnswer}
-              correctAnswer={state.answer}
-              score={state.yourRoundScore}
-            />
-            <div className="fc-phase-enter-delayed">
-              <RevealImages
-                imageUrl={state.imageUrl}
-                mode={state.imageMode}
-                crop={state.crop}
-              />
+                  onSelect={() => void submitChoice(choice)}
+                />
+              ))}
             </div>
-            <p className="fc-phase-enter-delayed text-center text-2xl font-bold text-blue-900">
-              Answer:{" "}
-              <span className="text-blue-600 underline decoration-2 underline-offset-4">
-                {state.answer}
-              </span>
-            </p>
-            <div className="fc-phase-enter-delayed">
-              <StandingsList standings={state.standings} />
-            </div>
+            {selected && (
+              <p className="fc-choice-locked fc-phase-enter">
+                Answer locked — hang tight!
+              </p>
+            )}
           </PhasePanel>
         )}
       </main>

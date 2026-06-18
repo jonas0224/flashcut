@@ -1,6 +1,12 @@
-import { PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
+import { HOST_ADVANCE_PHASES, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
 import { pickWinner, scoreCurrentRound } from "./scoring";
 import type { Pack, Phase, Room } from "./types";
+
+export function allPlayersAnswered(room: Room): boolean {
+  const playerIds = Object.keys(room.players);
+  if (playerIds.length === 0) return false;
+  return playerIds.every((id) => room.answers[id] != null);
+}
 
 export function phaseEndsAt(room: Room, now: number): number {
   if (room.status !== "playing") return now;
@@ -9,6 +15,8 @@ export function phaseEndsAt(room: Room, now: number): number {
 
 export function shouldAdvance(room: Room, now: number): boolean {
   if (room.status !== "playing") return false;
+  if (HOST_ADVANCE_PHASES.includes(room.phase)) return false;
+  if (room.phase === "guess" && allPlayersAnswered(room)) return true;
   return now >= phaseEndsAt(room, now);
 }
 
@@ -18,7 +26,12 @@ function nextPhase(phase: Phase): Phase | null {
   return PHASE_ORDER[idx + 1];
 }
 
-function finishOrNextRound(next: Room, pack: Pack, lastAnswers: Room["answers"]): Room {
+function finishOrNextRound(
+  next: Room,
+  pack: Pack,
+  lastAnswers: Room["answers"],
+  nextRoundPhase: Phase = "countdown",
+): Room {
   const round = pack.rounds[next.roundIndex];
   next.answers = {};
   if (next.roundIndex >= ROUND_COUNT - 1) {
@@ -34,7 +47,7 @@ function finishOrNextRound(next: Room, pack: Pack, lastAnswers: Room["answers"])
     return next;
   }
   next.roundIndex += 1;
-  next.phase = "peek";
+  next.phase = nextRoundPhase;
   return next;
 }
 
@@ -79,7 +92,7 @@ export function tickRoom(room: Room, pack: Pack, now: number): Room {
   return advanceRoomOnce(room, pack, now);
 }
 
-/** Host skip: jump to next phase; score if leaving guess. */
+/** Host advance: jump to next phase; score if leaving guess. */
 export function skipPhase(room: Room, pack: Pack, now: number): Room {
   if (room.status !== "playing") return room;
 
@@ -109,4 +122,13 @@ export function skipPhase(room: Room, pack: Pack, now: number): Room {
   next.phase = upcoming;
   next.phaseStartedAt = now;
   return next;
+}
+
+export function hostAdvanceLabel(phase: Phase): string {
+  if (phase === "reveal") return "Next round";
+  return "Skip phase";
+}
+
+export function isHostAdvancePrimary(phase: Phase): boolean {
+  return phase === "reveal";
 }

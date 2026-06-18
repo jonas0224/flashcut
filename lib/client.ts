@@ -1,11 +1,36 @@
 import type { RoomPublicState } from "./types";
 
 const HOST_KEY = (code: string) => `flashcut:host:${code}`;
+const HOST_PIN_KEY = (code: string) => `flashcut:hostpin:${code}`;
 const PLAYER_KEY = (code: string) => `flashcut:player:${code}`;
 
 export function saveHostSession(code: string, hostToken: string) {
   if (typeof window === "undefined") return;
   localStorage.setItem(HOST_KEY(code), hostToken);
+}
+
+export function saveHostPin(code: string, hostPin: string) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(HOST_PIN_KEY(code), hostPin);
+}
+
+export function getHostPin(code: string): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(HOST_PIN_KEY(code));
+}
+
+export function clearHostPin(code: string) {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(HOST_PIN_KEY(code));
+}
+
+export function hostAuthHeaders(code: string, hostToken: string): HeadersInit {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${hostToken}`,
+  };
+  const pin = getHostPin(code);
+  if (pin) headers["X-Flashcut-Host-Pin"] = pin;
+  return headers;
 }
 
 export function getHostSession(code: string): string | null {
@@ -39,6 +64,20 @@ export function getPlayerSession(code: string): {
   }
 }
 
+export async function fetchAccessConfig(): Promise<{
+  passwordRequired: boolean;
+  customUploadsEnabled: boolean;
+}> {
+  const res = await fetch("/api/config", { cache: "no-store" });
+  if (!res.ok) {
+    return { passwordRequired: false, customUploadsEnabled: true };
+  }
+  return res.json() as Promise<{
+    passwordRequired: boolean;
+    customUploadsEnabled: boolean;
+  }>;
+}
+
 export async function fetchRoomState(
   code: string,
   token?: string,
@@ -56,7 +95,7 @@ export async function fetchHostRounds(
   hostToken: string,
 ): Promise<{ rounds: import("./types").RoundDefinition[] } | null> {
   const res = await fetch(`/api/rooms/${code}/rounds`, {
-    headers: { Authorization: `Bearer ${hostToken}` },
+    headers: hostAuthHeaders(code, hostToken),
     cache: "no-store",
   });
   if (!res.ok) return null;
@@ -72,7 +111,7 @@ export async function saveHostRound(
   const res = await fetch(`/api/rooms/${code}/rounds/${roundIndex}`, {
     method: "PATCH",
     headers: {
-      Authorization: `Bearer ${hostToken}`,
+      ...hostAuthHeaders(code, hostToken),
       "Content-Type": "application/json",
     },
     body: JSON.stringify(round),
@@ -94,7 +133,7 @@ export async function uploadHostRoundImage(
   form.append("image", file);
   const res = await fetch(`/api/rooms/${code}/rounds/${roundIndex}/image`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${hostToken}` },
+    headers: hostAuthHeaders(code, hostToken),
     body: form,
   });
   const data = (await res.json()) as { imageUrl?: string; error?: string };

@@ -10,15 +10,20 @@ export async function GET(request: Request, { params }: Params) {
   const token = getBearerToken(request);
 
   let viewerPlayerId: string | undefined;
+  let isHostViewer = false;
   if (token) {
     const room = await loadRoom(code);
     if (room) {
-      const player = findPlayerByToken(room, token);
-      viewerPlayerId = player?.id;
+      if (room.hostToken === token) {
+        isHostViewer = true;
+      } else {
+        const player = findPlayerByToken(room, token);
+        viewerPlayerId = player?.id;
+      }
     }
   }
 
-  const state = await syncAndGetRoom(code, viewerPlayerId);
+  const state = await syncAndGetRoom(code, viewerPlayerId, isHostViewer);
   if (!state) {
     return jsonError("Room not found", "ROOM_NOT_FOUND", 404);
   }

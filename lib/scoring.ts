@@ -3,7 +3,7 @@ import {
   MIN_ROUND_POINTS,
   PHASE_MS,
 } from "./constants";
-import type { Player, Room, RoundResult } from "./types";
+import type { Player, Room, RoundResult, AnswerStats, RoundPlayerAnswer, PlayerAnswerStatsRow } from "./types";
 
 /**
  * Kahoot-style speed scoring: correct answers earn more the faster you lock in.
@@ -28,6 +28,76 @@ export function scoreRound(
   const points =
     MIN_ROUND_POINTS + (MAX_ROUND_POINTS - MIN_ROUND_POINTS) * scaled;
   return Math.round(points);
+}
+
+export function computeGameAnswerStats(room: Room): AnswerStats {
+  let correct = 0;
+  let wrong = 0;
+  for (const rr of room.roundResults) {
+    for (const score of Object.values(rr.scores)) {
+      if (score > 0) correct++;
+      else wrong++;
+    }
+  }
+  return { correct, wrong };
+}
+
+export function computePlayerAnswerStats(
+  playerId: string,
+  room: Room,
+): AnswerStats {
+  let correct = 0;
+  let wrong = 0;
+  for (const rr of room.roundResults) {
+    const score = rr.scores[playerId];
+    if (score === undefined) continue;
+    if (score > 0) correct++;
+    else wrong++;
+  }
+  return { correct, wrong };
+}
+
+export function buildAllPlayerAnswerStats(room: Room): PlayerAnswerStatsRow[] {
+  return Object.values(room.players)
+    .map((player) => ({
+      playerId: player.id,
+      nickname: player.nickname,
+      totalScore: player.totalScore,
+      ...computePlayerAnswerStats(player.id, room),
+    }))
+    .sort(
+      (a, b) =>
+        b.totalScore - a.totalScore ||
+        b.correct - a.correct ||
+        a.nickname.localeCompare(b.nickname),
+    );
+}
+
+export function buildRoundPlayerAnswers(
+  room: Room,
+  correctAnswer: string,
+  roundScores?: Record<string, number>,
+): RoundPlayerAnswer[] {
+  return Object.values(room.players)
+    .sort((a, b) => a.nickname.localeCompare(b.nickname))
+    .map((player) => {
+      const ans = room.answers[player.id];
+      if (!ans) {
+        return {
+          playerId: player.id,
+          nickname: player.nickname,
+          outcome: "none" as const,
+        };
+      }
+      const correct = ans.choice === correctAnswer;
+      return {
+        playerId: player.id,
+        nickname: player.nickname,
+        choice: ans.choice,
+        outcome: correct ? ("correct" as const) : ("wrong" as const),
+        roundScore: roundScores?.[player.id],
+      };
+    });
 }
 
 export function scoreCurrentRound(

@@ -17,6 +17,47 @@ export function extensionForMime(mime: string): string {
   }
 }
 
+function blobConfigured(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim());
+}
+
+async function saveToBlob(
+  roomCode: string,
+  roundIndex: number,
+  file: File,
+  buffer: Buffer,
+  ext: string,
+): Promise<{ imageUrl: string } | { error: string }> {
+  try {
+    const { put } = await import("@vercel/blob");
+    const pathname = `flashcut/${roomCode}/round-${roundIndex}.${ext}`;
+    const blob = await put(pathname, buffer, {
+      access: "public",
+      contentType: file.type,
+      addRandomSuffix: false,
+    });
+    return { imageUrl: blob.url };
+  } catch {
+    return { error: "Cloud image upload failed" };
+  }
+}
+
+async function saveToDisk(
+  roomCode: string,
+  roundIndex: number,
+  buffer: Buffer,
+  ext: string,
+): Promise<{ imageUrl: string }> {
+  const dir = path.join(process.cwd(), "public", "uploads", roomCode);
+  await mkdir(dir, { recursive: true });
+
+  const filename = `round-${roundIndex}.${ext}`;
+  const diskPath = path.join(dir, filename);
+  await writeFile(diskPath, buffer);
+
+  return { imageUrl: `/uploads/${roomCode}/${filename}` };
+}
+
 export async function saveRoundUpload(
   roomCode: string,
   roundIndex: number,
@@ -30,13 +71,22 @@ export async function saveRoundUpload(
   }
 
   const ext = extensionForMime(file.type);
-  const dir = path.join(process.cwd(), "public", "uploads", roomCode);
-  await mkdir(dir, { recursive: true });
-
-  const filename = `round-${roundIndex}.${ext}`;
-  const diskPath = path.join(dir, filename);
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeFile(diskPath, buffer);
 
-  return { imageUrl: `/uploads/${roomCode}/${filename}` };
+  if (blobConfigured()) {
+    return saveToBlob(roomCode, roundIndex, file, buffer, ext);
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return {
+      error:
+        "Custom uploads need BLOB_READ_WRITE_TOKEN on Vercel (Blob store)",
+    };
+  }
+
+  return saveToDisk(roomCode, roundIndex, buffer, ext);
+}
+
+export function customUploadsAvailable(): boolean {
+  return blobConfigured() || process.env.NODE_ENV !== "production";
 }

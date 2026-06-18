@@ -2,15 +2,33 @@ type Props = {
   yourAnswer?: string;
   correctAnswer?: string;
   score?: number;
+  surface?: "light" | "shell";
+  compact?: boolean;
 };
 
-export function AnswerResult({ yourAnswer, correctAnswer, score }: Props) {
+export function AnswerResult({
+  yourAnswer,
+  correctAnswer,
+  score,
+  surface = "light",
+  compact = false,
+}: Props) {
   if (!correctAnswer) return null;
+
+  const onShell = surface === "shell";
+  const sizeClass = compact ? "fc-result-card--compact" : "";
+  const shellClass = onShell ? "fc-result-card--shell" : "";
 
   if (!yourAnswer) {
     return (
-      <div className="fc-phase-enter fc-card px-6 py-5 text-center">
-        <p className="text-lg font-bold text-blue-800">No answer submitted</p>
+      <div
+        className={`fc-result-card fc-result-neutral fc-phase-enter text-center ${sizeClass} ${shellClass}`}
+      >
+        <p
+          className={`font-bold ${compact ? "text-sm" : "text-lg"} ${onShell ? "text-[#b8c9e6]" : "text-blue-800"}`}
+        >
+          No answer submitted
+        </p>
       </div>
     );
   }
@@ -19,11 +37,19 @@ export function AnswerResult({ yourAnswer, correctAnswer, score }: Props) {
 
   if (correct) {
     return (
-      <div className="fc-answer-correct rounded-2xl border-2 border-fc-correct bg-fc-correct-soft px-6 py-5 text-center shadow-lg">
-        <p className="fc-confetti-icon text-4xl">✓</p>
-        <p className="mt-2 text-2xl font-black text-fc-correct">Correct!</p>
+      <div
+        className={`fc-result-card fc-result-correct fc-answer-correct text-center ${sizeClass} ${shellClass}`}
+      >
+        <p className={compact ? "text-2xl" : "fc-confetti-icon text-4xl"}>✓</p>
+        <p
+          className={`mt-1 font-black text-fc-correct ${compact ? "text-lg" : "mt-2 text-2xl"}`}
+        >
+          Correct!
+        </p>
         {score !== undefined && score > 0 && (
-          <p className="mt-1 text-lg font-bold text-blue-900">
+          <p
+            className={`font-bold ${compact ? "text-sm" : "mt-1 text-lg"} ${onShell ? "text-fc-flash" : "text-blue-900"}`}
+          >
             +{score} points
           </p>
         )}
@@ -32,10 +58,18 @@ export function AnswerResult({ yourAnswer, correctAnswer, score }: Props) {
   }
 
   return (
-    <div className="fc-answer-wrong rounded-2xl border-2 border-fc-wrong bg-fc-wrong-soft px-6 py-5 text-center shadow-lg">
-      <p className="text-4xl font-black text-fc-wrong">✗</p>
-      <p className="mt-2 text-2xl font-black text-fc-wrong">Wrong</p>
-      <p className="mt-2 text-base font-semibold text-blue-900">
+    <div
+      className={`fc-result-card fc-result-wrong fc-answer-wrong text-center ${sizeClass} ${shellClass}`}
+    >
+      <p className={`font-black text-fc-wrong ${compact ? "text-2xl" : "text-4xl"}`}>✗</p>
+      <p
+        className={`font-black text-fc-wrong ${compact ? "mt-1 text-lg" : "mt-2 text-2xl"}`}
+      >
+        Wrong
+      </p>
+      <p
+        className={`font-semibold ${compact ? "mt-1 text-xs" : "mt-2 text-base"} ${onShell ? "text-[#b8c9e6]" : "text-blue-900"}`}
+      >
         You picked: <span className="font-black">{yourAnswer}</span>
       </p>
     </div>

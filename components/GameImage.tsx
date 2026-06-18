@@ -1,19 +1,44 @@
 import type { CSSProperties } from "react";
 import type { Crop, ImageMode } from "@/lib/types";
+import {
+  computeContainLayout,
+  computeCoverLayout,
+  computeZoomFrame,
+} from "@/lib/zoom-crop";
+import { useMeasuredImage } from "@/hooks/useMeasuredImage";
 
 type Props = {
   imageUrl: string;
   mode: ImageMode;
   crop?: Crop;
   reveal?: boolean;
-  size?: "play" | "reveal" | "thumb";
+  size?: "play" | "reveal" | "thumb" | "host";
+  /** Cover crops to fill; contain shows the full image (host screen share). */
+  fit?: "cover" | "contain";
+  /** Peek uses the standard phase timing; default is for reveal/editor. */
+  entrance?: "default" | "peek" | "none";
+  className?: string;
 };
 
-const HEIGHT = {
-  play: "h-[48dvh] sm:h-[55dvh]",
-  reveal: "h-[38dvh] sm:h-[42dvh]",
-  thumb: "h-28 sm:h-32",
+const FRAME_CLASS = {
+  play: "aspect-[4/3] w-full",
+  reveal: "aspect-[4/3] w-full",
+  thumb: "aspect-[4/3] w-full",
+  host: "h-full w-full min-h-0 max-h-full",
 } as const;
+
+const ENTRANCE_CLASS = {
+  default: "fc-image-enter",
+  peek: "fc-image-peek",
+  none: "",
+} as const;
+
+function imageFilter(mode: ImageMode, reveal: boolean): string | undefined {
+  if (reveal) return undefined;
+  if (mode === "silhouette") return "brightness(0) contrast(1.2)";
+  if (mode === "blur") return "blur(20px)";
+  return undefined;
+}
 
 export function GameImage({
   imageUrl,
@@ -21,31 +46,54 @@ export function GameImage({
   crop,
   reveal = false,
   size = "play",
+  fit = "cover",
+  entrance = "default",
+  className = "",
 }: Props) {
-  const style: CSSProperties = {};
-  const showCrop = !reveal && mode === "zoom" && crop;
+  const { containerRef, container, natural, onImageLoad, ready } =
+    useMeasuredImage();
 
-  if (showCrop) {
-    style.transform = `scale(${crop.scale})`;
-    style.transformOrigin = `${crop.x * 100}% ${crop.y * 100}%`;
-  }
+  const useZoom = !reveal && mode === "zoom" && crop;
+  const useContain = fit === "contain" || reveal;
+  const frame = ready
+    ? useZoom
+      ? computeZoomFrame(container, natural, crop)
+      : useContain
+        ? computeContainLayout(container, natural)
+        : computeCoverLayout(container, natural)
+    : null;
 
-  let filter: string | undefined;
-  if (!reveal) {
-    if (mode === "silhouette") filter = "brightness(0) contrast(1.2)";
-    if (mode === "blur") filter = "blur(20px)";
-  }
+  const style: CSSProperties = frame
+    ? {
+        left: frame.left,
+        top: frame.top,
+        width: frame.width,
+        height: frame.height,
+        filter: imageFilter(mode, reveal),
+      }
+    : {
+        filter: imageFilter(mode, reveal),
+      };
+
+  const placeholderFit = useContain ? "object-contain" : "object-cover";
 
   return (
     <div
-      className={`fc-image-enter relative w-full overflow-hidden rounded-3xl border-2 border-blue-200 bg-white shadow-xl ${HEIGHT[size]}`}
+      ref={containerRef}
+      className={`relative overflow-hidden rounded-3xl border-2 border-blue-200 bg-white shadow-xl ${FRAME_CLASS[size]} ${ENTRANCE_CLASS[entrance]} ${className}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-        style={{ ...style, filter }}
+        onLoad={onImageLoad}
+        className={
+          frame
+            ? "absolute max-w-none"
+            : `absolute inset-0 h-full w-full ${placeholderFit}`
+        }
+        style={style}
+        draggable={false}
       />
     </div>
   );
@@ -83,7 +131,7 @@ export function RevealImages({
             imageUrl={imageUrl}
             mode={mode}
             crop={crop}
-            size="thumb"
+            size="play"
           />
         </div>
       </div>

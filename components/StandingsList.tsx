@@ -1,27 +1,35 @@
 import type { RoomPublicState } from "@/lib/types";
-
-const medals = ["🥇", "🥈", "🥉", "4.", "5."];
+import { AnimatedRankings } from "./AnimatedRankings";
 
 export function StandingsList({
   standings,
+  roundScores,
+  roundIndex,
+  highlightId,
+  title,
+  surface = "light",
+  compact = false,
+  className = "",
 }: {
   standings: RoomPublicState["standings"];
+  roundScores?: Record<string, number>;
+  roundIndex?: number;
+  highlightId?: string;
+  title?: string;
+  surface?: "light" | "shell";
+  compact?: boolean;
+  className?: string;
 }) {
-  if (standings.length === 0) return null;
-
   return (
-    <ol className="space-y-2 text-base">
-      {standings.map((p, i) => (
-        <li
-          key={p.id}
-          className="fc-card flex justify-between"
-        >
-          <span>
-            {medals[i] ?? `${i + 1}.`} {p.nickname}
-          </span>
-          <span className="tabular-nums">{p.totalScore}</span>
-        </li>
-      ))}
-    </ol>
+    <AnimatedRankings
+      standings={standings}
+      roundScores={roundScores}
+      roundIndex={roundIndex}
+      highlightId={highlightId}
+      title={title}
+      surface={surface}
+      compact={compact}
+      className={className}
+    />
   );
 }

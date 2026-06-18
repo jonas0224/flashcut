@@ -1,5 +1,5 @@
 export type RoomStatus = "lobby" | "playing" | "finished";
-export type Phase = "peek" | "flashcut" | "guess" | "reveal";
+export type Phase = "countdown" | "peek" | "flashcut" | "guess" | "reveal";
 export type ImageMode = "zoom" | "silhouette" | "blur";
 
 export interface Crop {
@@ -43,10 +43,34 @@ export interface RoundResult {
   scores: Record<string, number>;
 }
 
+export interface AnswerStats {
+  correct: number;
+  wrong: number;
+}
+
+export interface PlayerAnswerStatsRow {
+  playerId: string;
+  nickname: string;
+  totalScore: number;
+  correct: number;
+  wrong: number;
+}
+
+export type RoundAnswerOutcome = "correct" | "wrong" | "none";
+
+export interface RoundPlayerAnswer {
+  playerId: string;
+  nickname: string;
+  choice?: string;
+  outcome: RoundAnswerOutcome;
+  roundScore?: number;
+}
+
 export interface Room {
   code: string;
   hostId: string;
   hostToken: string;
+  hostPinHash?: string;
   status: RoomStatus;
   packId: string;
   roundIndex: number;
@@ -69,6 +93,7 @@ export interface RoomPublicState {
   roundIndex: number;
   roundCount: number;
   phase: Phase;
+  phaseStartedAt: number;
   phaseEndsAt: number;
   players: Array<{ id: string; nickname: string; totalScore: number }>;
   standings: Array<{ id: string; nickname: string; totalScore: number }>;
@@ -81,6 +106,11 @@ export interface RoomPublicState {
   yourAnswer?: string;
   yourRoundScore?: number;
   winnerId?: string;
+  answerStats?: AnswerStats;
+  yourAnswerStats?: AnswerStats;
+  /** Host-only: per-player correct/wrong counts when the game is finished. */
+  playerAnswerStats?: PlayerAnswerStatsRow[];
+  roundPlayerAnswers?: RoundPlayerAnswer[];
 }
 
 export interface ApiErrorBody {

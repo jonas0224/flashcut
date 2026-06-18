@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { verifyAccess } from "@/lib/access-control";
 import { jsonError, parseJson } from "@/lib/api-utils";
 import { joinRoom } from "@/lib/room-service";
 
@@ -14,14 +16,20 @@ export async function POST(request: Request, { params }: Params) {
     return jsonError("Nickname required", "INVALID_NICKNAME", 400);
   }
 
-  const result = await joinRoom(code, body.nickname, body.password);
+  const cookieStore = await cookies();
+  const accessCookie = cookieStore.get("flashcut_access")?.value;
+  if (!verifyAccess(body.password, accessCookie)) {
+    return jsonError("Wrong team password", "WRONG_PASSWORD", 403);
+  }
+
+  const result = await joinRoom(code, body.nickname);
   if ("error" in result) {
     const status =
       result.code === "ROOM_NOT_FOUND"
         ? 404
-        : result.code === "WRONG_PASSWORD"
-          ? 403
-          : 409;
+        : result.code === "GAME_STARTED" || result.code === "ROOM_FULL"
+          ? 409
+          : 400;
     return jsonError(result.error, result.code, status);
   }
 

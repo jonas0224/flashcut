@@ -54,7 +54,8 @@ npm run smoke:local
 | -------- | -------- | ----- |
 | `UPSTASH_REDIS_REST_URL` | For Vercel prod | Without it, uses in-memory store (single instance only) |
 | `UPSTASH_REDIS_REST_TOKEN` | For Vercel prod | |
-| `ROOM_PASSWORD` | No | If set, players must enter it to join |
+| `ROOM_PASSWORD` | **Yes on Vercel** | Shared team password; gates `/login`, create room, and join |
+| `BLOB_READ_WRITE_TOKEN` | For prod uploads | [Vercel Blob](https://vercel.com/docs/storage/vercel-blob) — host custom round images |
 
 ---
 
@@ -76,7 +77,7 @@ See [docs/local-testing.md](docs/local-testing.md) first. Then:
 
 1. Import project from `team-games/flashcut`  
 2. Add **Upstash Redis** integration  
-3. Optionally set `ROOM_PASSWORD`  
+3. Set **`ROOM_PASSWORD`** (team sign-in) and add **Vercel Blob** for custom image uploads  
 4. Deploy — share URL with team only (`robots.txt` blocks indexing)
 
 ---

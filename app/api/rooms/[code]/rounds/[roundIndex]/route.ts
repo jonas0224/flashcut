@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBearerToken, jsonError, parseJson } from "@/lib/api-utils";
+import { getBearerToken, getHostPin, jsonError, parseJson } from "@/lib/api-utils";
 import { updateHostRound } from "@/lib/room-service";
 import type { RoundDefinition } from "@/lib/types";
 
@@ -18,7 +18,13 @@ export async function PATCH(request: Request, { params }: Params) {
     return jsonError("Invalid JSON body", "INVALID_BODY", 400);
   }
 
-  const result = await updateHostRound(code, hostToken, roundIndex, body);
+  const result = await updateHostRound(
+    code,
+    hostToken,
+    roundIndex,
+    body,
+    getHostPin(request) ?? undefined,
+  );
   if ("error" in result) {
     const status =
       result.code === "ROOM_NOT_FOUND"

@@ -1,13 +1,23 @@
 import type { Phase } from "./types";
 
 export const PHASE_MS: Record<Phase, number> = {
-  peek: 5000,
-  flashcut: 2500,
+  countdown: 3000,
+  peek: 2000,
+  flashcut: 2000,
   guess: 10000,
-  reveal: 6000,
+  reveal: 5000,
 };
 
-export const PHASE_ORDER: Phase[] = ["peek", "flashcut", "guess", "reveal"];
+/** Phases that only advance when the host presses Next (no auto timer). */
+export const HOST_ADVANCE_PHASES: Phase[] = ["reveal"];
+
+export const PHASE_ORDER: Phase[] = [
+  "countdown",
+  "peek",
+  "flashcut",
+  "guess",              
+  "reveal",
+];
 
 export const ROUND_COUNT = 10;
 /** Max points for an instant correct answer (Kahoot-style speed scoring). */

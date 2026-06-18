@@ -48,16 +48,69 @@ export async function saveRoom(room: Room): Promise<void> {
   await getRedis().set(key, JSON.stringify(room), { ex: ROOM_TTL_SECONDS });
 }
 
+/**
+ * Save only if the room in storage still matches `expectedVersion`.
+ * Prevents poll ticks from clobbering concurrent answer submissions.
+ */
+export async function saveRoomIfVersion(
+  code: string,
+  expectedVersion: number,
+  room: Room,
+): Promise<boolean> {
+  const key = roomKey(code.toUpperCase());
+
+  if (!redisConfigured()) {
+    const current = memoryRooms.get(key);
+    if (!current || current.version !== expectedVersion) return false;
+    memoryRooms.set(key, room);
+    return true;
+  }
+
+  const { ROOM_TTL_SECONDS } = await import("./constants");
+  const payload = JSON.stringify(room);
+  const result = (await getRedis().eval(
+    `local raw = redis.call('GET', KEYS[1])
+if not raw then return 0 end
+local current = cjson.decode(raw)
+if tonumber(current.version) ~= tonumber(ARGV[1]) then return 0 end
+redis.call('SET', KEYS[1], ARGV[2], 'EX', tonumber(ARGV[3]))
+return 1`,
+    [key],
+    [String(expectedVersion), payload, String(ROOM_TTL_SECONDS)],
+  )) as number;
+  return result === 1;
+}
+
 export async function updateRoom(
   code: string,
-  updater: (room: Room) => Room,
+  updater: (room: Room) => Room | "noop",
+  maxRetries = 8,
 ): Promise<Room | null> {
-  const room = await loadRoom(code);
-  if (!room) return null;
+  const normalized = code.toUpperCase();
 
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const room = await loadRoom(normalized);
+    if (!room) return null;
+
+    const updated = updater(room);
+    if (updated === "noop") return room;
+
+    const next: Room = {
+      ...updated,
+      version: room.version + 1,
+    };
+
+    const saved = await saveRoomIfVersion(normalized, room.version, next);
+    if (saved) return next;
+  }
+
+  const room = await loadRoom(normalized);
+  if (!room) return null;
   const updated = updater(room);
-  await saveRoom(updated);
-  return updated;
+  if (updated === "noop") return room;
+  const next: Room = { ...updated, version: room.version + 1 };
+  await saveRoom(next);
+  return next;
 }
 
 /** For tests */

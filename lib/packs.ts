@@ -9,6 +9,16 @@ export function getPack(packId: string): Pack | undefined {
   return packs[packId];
 }
 
+export function isAllowedImageUrl(imageUrl: string): boolean {
+  if (imageUrl.startsWith("/packs/") || imageUrl.startsWith("/uploads/")) {
+    return true;
+  }
+  if (imageUrl.startsWith("https://") && imageUrl.includes(".blob.vercel-storage.com")) {
+    return true;
+  }
+  return false;
+}
+
 export function validateRound(round: RoundDefinition): string[] {
   const errors: string[] = [];
 
@@ -18,11 +28,8 @@ export function validateRound(round: RoundDefinition): string[] {
   if (!round.choices.includes(round.answer)) {
     errors.push("answer must match a choice");
   }
-  if (
-    !round.imageUrl.startsWith("/packs/") &&
-    !round.imageUrl.startsWith("/uploads/")
-  ) {
-    errors.push("imageUrl must start with /packs/ or /uploads/");
+  if (!isAllowedImageUrl(round.imageUrl)) {
+    errors.push("imageUrl must be a pack, upload, or team blob URL");
   }
   if (round.mode === "zoom" && !round.crop) {
     errors.push("zoom mode requires crop");

@@ -1,9 +1,10 @@
 import { randomBytes } from "crypto";
 import { CODE_ALPHABET, MAX_PLAYERS, ROUND_COUNT } from "./constants";
+import { hashHostPin, validateHostPin, verifyHostPin } from "./host-pin";
 import { phaseEndsAt, skipPhase, tickRoom } from "./phase-engine";
 import { getPack, getRound, validateRound } from "./packs";
 import { getRoomPack, initCustomRounds } from "./room-pack";
-import { pickWinner } from "./scoring";
+import { computeGameAnswerStats, computePlayerAnswerStats, buildRoundPlayerAnswers, buildAllPlayerAnswerStats, pickWinner } from "./scoring";
 import { loadRoom, saveRoom, updateRoom } from "./room-store";
 import type { Pack, Player, Room, RoomPublicState, RoundDefinition } from "./types";
 
@@ -20,7 +21,13 @@ export function generateToken(): string {
   return randomBytes(16).toString("hex");
 }
 
-export async function createRoom(packId = "starter-01"): Promise<Room | null> {
+export async function createRoom(
+  packId = "starter-01",
+  hostPin: string,
+): Promise<Room | null> {
+  const pinError = validateHostPin(hostPin);
+  if (pinError) return null;
+
   const pack = getPack(packId);
   if (!pack) return null;
 
@@ -35,11 +42,12 @@ export async function createRoom(packId = "starter-01"): Promise<Room | null> {
     code,
     hostId: generateToken(),
     hostToken: generateToken(),
+    hostPinHash: hashHostPin(hostPin, code),
     status: "lobby",
     packId,
     customRounds: initCustomRounds(packId),
     roundIndex: 0,
-    phase: "peek",
+    phase: "countdown",
     phaseStartedAt: Date.now(),
     players: {},
     answers: {},
@@ -64,21 +72,10 @@ function uniqueNickname(room: Room, nickname: string): string {
   return `${nickname}-${n}`;
 }
 
-export function verifyRoomPassword(password?: string): boolean {
-  const required = process.env.ROOM_PASSWORD?.trim();
-  if (!required) return true;
-  return password === required;
-}
-
 export async function joinRoom(
   code: string,
   nickname: string,
-  password?: string,
 ): Promise<{ room: Room; player: Player } | { error: string; code: string }> {
-  if (!verifyRoomPassword(password)) {
-    return { error: "Wrong room password", code: "WRONG_PASSWORD" };
-  }
-
   const trimmed = nickname.trim();
   if (trimmed.length < 2 || trimmed.length > 20) {
     return { error: "Nickname must be 2–20 characters", code: "INVALID_NICKNAME" };
@@ -115,7 +112,7 @@ export async function joinRoom(
   return { room: updated, player };
 }
 
-function getStandings(room: Room, limit = 5) {
+function getStandings(room: Room, limit = MAX_PLAYERS) {
   return Object.values(room.players)
     .sort((a, b) => b.totalScore - a.totalScore)
     .slice(0, limit)
@@ -127,6 +124,7 @@ export function toPublicState(
   pack: Pack,
   now: number,
   viewerPlayerId?: string,
+  isHostViewer = false,
 ): RoomPublicState {
   const round = getRound(pack, room.roundIndex);
   const endsAt = phaseEndsAt(room, now);
@@ -137,6 +135,7 @@ export function toPublicState(
     roundIndex: room.roundIndex,
     roundCount: ROUND_COUNT,
     phase: room.phase,
+    phaseStartedAt: room.phaseStartedAt,
     phaseEndsAt: endsAt,
     players: Object.values(room.players).map((p) => ({
       id: p.id,
@@ -147,10 +146,32 @@ export function toPublicState(
   };
 
   if (room.status === "finished") {
-    return { ...base, winnerId: room.winnerId };
+    const answerStats = computeGameAnswerStats(room);
+    const yourAnswerStats = viewerPlayerId
+      ? computePlayerAnswerStats(viewerPlayerId, room)
+      : undefined;
+    return {
+      ...base,
+      winnerId: room.winnerId,
+      answerStats: isHostViewer ? answerStats : undefined,
+      yourAnswerStats,
+      playerAnswerStats: isHostViewer
+        ? buildAllPlayerAnswerStats(room)
+        : undefined,
+    };
   }
 
   if (room.status !== "playing" || !round) return base;
+
+  if (room.phase === "countdown" && isHostViewer) {
+    return {
+      ...base,
+      choices: round.choices,
+      imageUrl: round.imageUrl,
+      imageMode: round.mode,
+      crop: round.crop,
+    };
+  }
 
   if (room.phase === "peek") {
     return {
@@ -162,11 +183,28 @@ export function toPublicState(
   }
 
   if (room.phase === "flashcut") {
-    return base;
+    if (!isHostViewer) return base;
+    return {
+      ...base,
+      imageUrl: round.imageUrl,
+      imageMode: round.mode,
+      crop: round.crop,
+      choices: round.choices,
+    };
   }
 
   if (room.phase === "guess") {
-    return { ...base, choices: round.choices };
+    return {
+      ...base,
+      choices: round.choices,
+      ...(isHostViewer
+        ? {
+            imageUrl: round.imageUrl,
+            imageMode: round.mode,
+            crop: round.crop,
+          }
+        : {}),
+    };
   }
 
   const lastResult = room.roundResults[room.roundResults.length - 1];
@@ -182,6 +220,11 @@ export function toPublicState(
     choices: round.choices,
     answer: round.answer,
     roundScores: lastResult?.scores,
+    roundPlayerAnswers: buildRoundPlayerAnswers(
+      room,
+      round.answer,
+      lastResult?.scores,
+    ),
     yourAnswer: viewerAnswer?.choice,
     yourRoundScore: viewerPlayerId
       ? lastResult?.scores[viewerPlayerId]
@@ -192,6 +235,7 @@ export function toPublicState(
 export async function syncAndGetRoom(
   code: string,
   viewerPlayerId?: string,
+  isHostViewer = false,
 ): Promise<RoomPublicState | null> {
   const now = Date.now();
 
@@ -205,18 +249,18 @@ export async function syncAndGetRoom(
   if (!room) return null;
   const resolvedPack = getRoomPack(room);
   if (!resolvedPack) return null;
-  return toPublicState(room, resolvedPack, now, viewerPlayerId);
+  return toPublicState(room, resolvedPack, now, viewerPlayerId, isHostViewer);
 }
 
 export async function startGame(
   code: string,
   hostToken: string,
+  hostPin?: string,
 ): Promise<Room | { error: string; code: string }> {
   const room = await loadRoom(code);
   if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
-  if (room.hostToken !== hostToken) {
-    return { error: "Not authorized", code: "UNAUTHORIZED" };
-  }
+  const auth = assertHost(room, hostToken, hostPin);
+  if ("error" in auth) return auth;
   if (room.status !== "lobby") {
     return { error: "Game already started", code: "GAME_STARTED" };
   }
@@ -226,7 +270,7 @@ export async function startGame(
     ...room,
     status: "playing",
     roundIndex: 0,
-    phase: "peek",
+    phase: "countdown",
     phaseStartedAt: now,
     answers: {},
     roundResults: [],
@@ -241,44 +285,65 @@ export async function submitAnswer(
   playerToken: string,
   choice: string,
 ): Promise<Room | { error: string; code: string }> {
-  const room = await loadRoom(code);
-  if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  let playerId: string | undefined;
+  let reject: { error: string; code: string } | undefined;
 
-  const player = Object.values(room.players).find((p) => p.token === playerToken);
-  if (!player) return { error: "Not authorized", code: "UNAUTHORIZED" };
-  if (room.status !== "playing" || room.phase !== "guess") {
-    return { error: "Not in guess phase", code: "WRONG_PHASE" };
+  const updated = await updateRoom(code, (room) => {
+    const player = Object.values(room.players).find((p) => p.token === playerToken);
+    if (!player) {
+      reject = { error: "Not authorized", code: "UNAUTHORIZED" };
+      return "noop";
+    }
+    playerId = player.id;
+
+    if (room.status !== "playing" || room.phase !== "guess") {
+      reject = { error: "Not in guess phase", code: "WRONG_PHASE" };
+      return "noop";
+    }
+
+    if (room.answers[player.id]) return "noop";
+
+    const pack = getRoomPack(room);
+    if (!pack) {
+      reject = { error: "Pack not found", code: "PACK_NOT_FOUND" };
+      return "noop";
+    }
+
+    const round = getRound(pack, room.roundIndex);
+    if (!round || !round.choices.includes(choice as (typeof round.choices)[number])) {
+      reject = { error: "Invalid choice", code: "INVALID_CHOICE" };
+      return "noop";
+    }
+
+    const withAnswer: Room = {
+      ...room,
+      answers: {
+        ...room.answers,
+        [player.id]: { choice, lockedAt: Date.now() },
+      },
+      version: room.version + 1,
+    };
+
+    return tickRoom(withAnswer, pack, Date.now());
+  });
+
+  if (!updated) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  if (reject) return reject;
+  if (playerId && !updated.answers[playerId]) {
+    return { error: "Answer not saved", code: "SAVE_FAILED" };
   }
-
-  const pack = getRoomPack(room);
-  if (!pack) return { error: "Pack not found", code: "PACK_NOT_FOUND" };
-
-  const round = getRound(pack, room.roundIndex);
-  if (!round || !round.choices.includes(choice as (typeof round.choices)[number])) {
-    return { error: "Invalid choice", code: "INVALID_CHOICE" };
-  }
-
-  const updated: Room = {
-    ...room,
-    answers: {
-      ...room.answers,
-      [player.id]: { choice, lockedAt: Date.now() },
-    },
-    version: room.version + 1,
-  };
-  await saveRoom(updated);
   return updated;
 }
 
 export async function skipRound(
   code: string,
   hostToken: string,
+  hostPin?: string,
 ): Promise<Room | { error: string; code: string }> {
   const room = await loadRoom(code);
   if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
-  if (room.hostToken !== hostToken) {
-    return { error: "Not authorized", code: "UNAUTHORIZED" };
-  }
+  const auth = assertHost(room, hostToken, hostPin);
+  if ("error" in auth) return auth;
   if (room.status !== "playing") {
     return { error: "Game not in progress", code: "WRONG_STATUS" };
   }
@@ -294,12 +359,12 @@ export async function skipRound(
 export async function endGame(
   code: string,
   hostToken: string,
+  hostPin?: string,
 ): Promise<Room | { error: string; code: string }> {
   const room = await loadRoom(code);
   if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
-  if (room.hostToken !== hostToken) {
-    return { error: "Not authorized", code: "UNAUTHORIZED" };
-  }
+  const auth = assertHost(room, hostToken, hostPin);
+  if ("error" in auth) return auth;
 
   const pack = getRoomPack(room);
   const lastRound = pack?.rounds[room.roundIndex];
@@ -329,9 +394,18 @@ export function findPlayerByToken(room: Room, token: string): Player | undefined
 function assertHost(
   room: Room,
   hostToken: string,
+  hostPin?: string,
 ): Room | { error: string; code: string } {
   if (room.hostToken !== hostToken) {
     return { error: "Not authorized", code: "UNAUTHORIZED" };
+  }
+  if (room.hostPinHash) {
+    if (!hostPin?.trim()) {
+      return { error: "Host PIN required", code: "HOST_PIN_REQUIRED" };
+    }
+    if (!verifyHostPin(room, hostPin)) {
+      return { error: "Wrong host PIN", code: "WRONG_HOST_PIN" };
+    }
   }
   return room;
 }
@@ -344,13 +418,26 @@ function ensureCustomRounds(room: Room): RoundDefinition[] {
   return seeded;
 }
 
+export async function verifyHostAccess(
+  code: string,
+  hostToken: string,
+  hostPin?: string,
+): Promise<{ ok: true } | { error: string; code: string }> {
+  const room = await loadRoom(code);
+  if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  const auth = assertHost(room, hostToken, hostPin);
+  if ("error" in auth) return auth;
+  return { ok: true };
+}
+
 export async function getHostRounds(
   code: string,
   hostToken: string,
+  hostPin?: string,
 ): Promise<{ rounds: RoundDefinition[] } | { error: string; code: string }> {
   const room = await loadRoom(code);
   if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
-  const auth = assertHost(room, hostToken);
+  const auth = assertHost(room, hostToken, hostPin);
   if ("error" in auth) return auth;
 
   const pack = getRoomPack(room);
@@ -363,6 +450,7 @@ export async function updateHostRound(
   hostToken: string,
   roundIndex: number,
   patch: RoundDefinition,
+  hostPin?: string,
 ): Promise<{ ok: true } | { error: string; code: string }> {
   if (roundIndex < 0 || roundIndex >= ROUND_COUNT) {
     return { error: "Invalid round index", code: "INVALID_ROUND" };
@@ -370,7 +458,7 @@ export async function updateHostRound(
 
   const room = await loadRoom(code);
   if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
-  const auth = assertHost(room, hostToken);
+  const auth = assertHost(room, hostToken, hostPin);
   if ("error" in auth) return auth;
   if (room.status !== "lobby") {
     return { error: "Can only edit rounds in lobby", code: "GAME_STARTED" };
@@ -399,6 +487,7 @@ export async function setHostRoundImageUrl(
   hostToken: string,
   roundIndex: number,
   imageUrl: string,
+  hostPin?: string,
 ): Promise<{ imageUrl: string } | { error: string; code: string }> {
   if (roundIndex < 0 || roundIndex >= ROUND_COUNT) {
     return { error: "Invalid round index", code: "INVALID_ROUND" };
@@ -406,7 +495,7 @@ export async function setHostRoundImageUrl(
 
   const room = await loadRoom(code);
   if (!room) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
-  const auth = assertHost(room, hostToken);
+  const auth = assertHost(room, hostToken, hostPin);
   if ("error" in auth) return auth;
   if (room.status !== "lobby") {
     return { error: "Can only edit rounds in lobby", code: "GAME_STARTED" };

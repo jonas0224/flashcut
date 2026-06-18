@@ -1,8 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchRoomState } from "@/lib/client";
 import type { RoomPublicState } from "@/lib/types";
+
+function pollIntervalMs(state: RoomPublicState | null): number {
+  if (!state) return 800;
+  if (state.status === "lobby") return 800;
+  if (state.status !== "playing") return 1500;
+  if (
+    state.phase === "countdown" ||
+    state.phase === "peek" ||
+    state.phase === "flashcut" ||
+    state.phase === "guess"
+  ) {
+    return 250;
+  }
+  return 700;
+}
 
 export function useRoomPoll(
   code: string,
@@ -11,6 +26,7 @@ export function useRoomPoll(
 ) {
   const [state, setState] = useState<RoomPublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const phaseKeyRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await fetchRoomState(code, token ?? undefined);
@@ -25,11 +41,22 @@ export function useRoomPoll(
   useEffect(() => {
     if (!enabled) return;
     void refresh();
-    const interval =
-      state?.status === "playing" ? 800 : state?.status === "lobby" ? 3000 : 2000;
+  }, [enabled, refresh]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const interval = pollIntervalMs(state);
     const id = setInterval(() => void refresh(), interval);
     return () => clearInterval(id);
-  }, [enabled, refresh, state?.status]);
+  }, [enabled, refresh, state?.status, state?.phase, state?.roundIndex]);
+
+  useEffect(() => {
+    if (!enabled || state?.status !== "playing") return;
+    const phaseKey = `${state.roundIndex}:${state.phase}`;
+    if (phaseKeyRef.current === phaseKey) return;
+    phaseKeyRef.current = phaseKey;
+    void refresh();
+  }, [enabled, refresh, state?.roundIndex, state?.phase, state?.status]);
 
   return { state, error, refresh };
 }

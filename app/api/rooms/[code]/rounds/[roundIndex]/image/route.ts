@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBearerToken, jsonError } from "@/lib/api-utils";
+import { getBearerToken, getHostPin, jsonError } from "@/lib/api-utils";
 import { setHostRoundImageUrl } from "@/lib/room-service";
 import { saveRoundUpload } from "@/lib/upload-round-image";
 
@@ -35,6 +35,7 @@ export async function POST(request: Request, { params }: Params) {
     hostToken,
     roundIndex,
     saved.imageUrl,
+    getHostPin(request) ?? undefined,
   );
   if ("error" in result) {
     const status =

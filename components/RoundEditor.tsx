@@ -11,54 +11,44 @@ type Props = {
   roundIndex: number;
   round: RoundDefinition;
   disabled?: boolean;
-  onSave: (round: RoundDefinition) => Promise<string | null>;
+  busy?: boolean;
+  onChange: (round: RoundDefinition) => void;
   onUpload: (file: File) => Promise<string | null>;
 };
 
 export function RoundEditor({
   roundIndex,
-  round: initial,
+  round,
   disabled,
-  onSave,
+  busy,
+  onChange,
   onUpload,
 }: Props) {
-  const [round, setRound] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   function updateChoice(index: number, value: string) {
     const choices = [...round.choices] as [string, string, string, string];
     choices[index] = value;
-    setRound((r) => ({ ...r, choices }));
+    onChange({ ...round, choices });
   }
 
   function setMode(mode: ImageMode) {
-    setRound((r) => ({
-      ...r,
+    onChange({
+      ...round,
       mode,
-      crop: mode === "zoom" ? (r.crop ?? DEFAULT_CROP) : undefined,
-    }));
-  }
-
-  async function handleSave() {
-    setBusy(true);
-    setMessage(null);
-    const err = await onSave(round);
-    setBusy(false);
-    setMessage(err ?? "Saved");
+      crop: mode === "zoom" ? (round.crop ?? DEFAULT_CROP) : undefined,
+    });
   }
 
   async function handleUpload(file: File) {
-    setBusy(true);
-    setMessage(null);
+    setUploadMessage(null);
     const err = await onUpload(file);
-    setBusy(false);
-    if (err && err !== "Saved") {
-      setMessage(err);
+    if (err) {
+      setUploadMessage(err);
       return;
     }
-    setMessage("Image uploaded");
+    setUploadMessage("Image uploaded");
   }
 
   return (
@@ -98,10 +88,8 @@ export function RoundEditor({
           className="fc-input w-full text-sm"
           value={round.imageUrl}
           disabled={disabled || busy}
-          onChange={(e) =>
-            setRound((r) => ({ ...r, imageUrl: e.target.value }))
-          }
-          placeholder="/packs/... or /uploads/..."
+          onChange={(e) => onChange({ ...round, imageUrl: e.target.value })}
+          placeholder="/packs/... or uploaded image URL"
         />
       </label>
 
@@ -126,7 +114,7 @@ export function RoundEditor({
           imageUrl={round.imageUrl}
           crop={round.crop ?? DEFAULT_CROP}
           disabled={disabled || busy}
-          onChange={(crop) => setRound((r) => ({ ...r, crop }))}
+          onChange={(crop) => onChange({ ...round, crop })}
         />
       ) : (
         <div className="overflow-hidden rounded-2xl border border-blue-100 bg-blue-50">
@@ -159,7 +147,7 @@ export function RoundEditor({
           className="fc-input w-full"
           value={round.answer}
           disabled={disabled || busy}
-          onChange={(e) => setRound((r) => ({ ...r, answer: e.target.value }))}
+          onChange={(e) => onChange({ ...round, answer: e.target.value })}
         >
           {round.choices.map((c) => (
             <option key={c} value={c}>
@@ -169,20 +157,11 @@ export function RoundEditor({
         </select>
       </label>
 
-      <button
-        type="button"
-        disabled={disabled || busy}
-        onClick={() => void handleSave()}
-        className="fc-btn-primary w-full text-base"
-      >
-        {busy ? "Saving…" : "Save round"}
-      </button>
-
-      {message && (
+      {uploadMessage && (
         <p
-          className={`text-center text-sm font-semibold ${message === "Saved" || message === "Image uploaded" ? "text-green-700" : "text-red-600"}`}
+          className={`text-center text-sm font-semibold ${uploadMessage === "Image uploaded" ? "text-green-700" : "text-red-600"}`}
         >
-          {message}
+          {uploadMessage}
         </p>
       )}
     </article>
