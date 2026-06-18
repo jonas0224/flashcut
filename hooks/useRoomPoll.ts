@@ -7,6 +7,7 @@ import type { RoomPublicState } from "@/lib/types";
 function pollIntervalMs(state: RoomPublicState | null): number {
   if (!state) return 800;
   if (state.status === "lobby") return 800;
+  if (state.status === "finished") return 5000;
   if (state.status !== "playing") return 1500;
   if (
     state.phase === "countdown" ||

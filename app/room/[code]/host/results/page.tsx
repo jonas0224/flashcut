@@ -28,14 +28,15 @@ export default function HostResultsPage() {
 
   useEffect(() => {
     if (!state) return;
-    if (state.status === "lobby") {
+    const status = state.status;
+    if (status === "lobby") {
       router.replace(`/room/${code}/host`);
       return;
     }
-    if (state.status === "playing") {
+    if (status === "playing") {
       router.replace(`/room/${code}/host`);
     }
-  }, [state, code, router]);
+  }, [state?.status, code, router]);
 
   if (!hostToken) {
     return (

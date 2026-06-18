@@ -77,4 +77,26 @@ describe("updateRoom", () => {
     expect(result?.answers.p1?.choice).toBe("Fast");
     expect(attempts).toBeGreaterThan(1);
   });
+
+  it("keeps answers when a concurrent phase write races", async () => {
+    const room = baseRoom();
+    await saveRoom(room);
+
+    const [answerResult, phaseResult] = await Promise.all([
+      updateRoom("RACE01", (r) => ({
+        ...r,
+        answers: { p1: { choice: "Saved", lockedAt: Date.now() } },
+      })),
+      updateRoom("RACE01", (r) => ({
+        ...r,
+        phase: "reveal",
+      })),
+    ]);
+
+    expect(answerResult).not.toBeNull();
+    expect(phaseResult).not.toBeNull();
+
+    const final = await updateRoom("RACE01", (r) => r);
+    expect(final?.answers.p1?.choice).toBe("Saved");
+  });
 });

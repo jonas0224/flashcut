@@ -51,6 +51,17 @@ function finishOrNextRound(
   return next;
 }
 
+/** Score the current round if still in guess and not yet recorded. */
+export function scorePendingRound(room: Room, pack: Pack): Room {
+  if (room.status !== "playing" || room.phase !== "guess") return room;
+  const round = pack.rounds[room.roundIndex];
+  if (!round) return room;
+  if (room.roundResults.some((rr) => rr.roundIndex === room.roundIndex)) {
+    return room;
+  }
+  return scoreCurrentRound(room, round.answer, room.phaseStartedAt).room;
+}
+
 export function advanceRoomOnce(
   room: Room,
   pack: Pack,

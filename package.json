@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke:local": "tsx scripts/smoke-local.ts"
+    "smoke:local": "tsx scripts/smoke-local.ts",
+    "smoke:concurrent": "tsx scripts/smoke-concurrent.ts"
   },
   "dependencies": {
     "@upstash/redis": "^1.36.3",

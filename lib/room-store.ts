@@ -84,7 +84,7 @@ return 1`,
 export async function updateRoom(
   code: string,
   updater: (room: Room) => Room | "noop",
-  maxRetries = 8,
+  maxRetries = 16,
 ): Promise<Room | null> {
   const normalized = code.toUpperCase();
 
@@ -104,13 +104,7 @@ export async function updateRoom(
     if (saved) return next;
   }
 
-  const room = await loadRoom(normalized);
-  if (!room) return null;
-  const updated = updater(room);
-  if (updated === "noop") return room;
-  const next: Room = { ...updated, version: room.version + 1 };
-  await saveRoom(next);
-  return next;
+  return null;
 }
 
 /** For tests */

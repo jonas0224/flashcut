@@ -30,18 +30,20 @@ export default function RoundRankingsPage() {
 
   useEffect(() => {
     if (!state) return;
-    if (state.status === "lobby") {
+    const status = state.status;
+    const phase = state.phase;
+    if (status === "lobby") {
       router.replace(`/join/${code}`);
       return;
     }
-    if (state.status === "finished") {
+    if (status === "finished") {
       router.replace(`/room/${code}/results`);
       return;
     }
-    if (state.status === "playing" && state.phase !== "reveal") {
+    if (status === "playing" && phase !== "reveal") {
       router.replace(`/room/${code}`);
     }
-  }, [state, code, router]);
+  }, [state?.status, state?.phase, code, router]);
 
   if (!state || !token) {
     return (

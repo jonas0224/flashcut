@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { CODE_ALPHABET, MAX_PLAYERS, ROUND_COUNT } from "./constants";
 import { hashHostPin, validateHostPin, verifyHostPin } from "./host-pin";
-import { phaseEndsAt, skipPhase, tickRoom } from "./phase-engine";
+import { phaseEndsAt, skipPhase, tickRoom, scorePendingRound } from "./phase-engine";
 import { getPack, getRound, validateRound } from "./packs";
 import { getRoomPack, initCustomRounds } from "./room-pack";
 import { computeGameAnswerStats, computePlayerAnswerStats, buildRoundPlayerAnswers, buildAllPlayerAnswerStats, pickWinner } from "./scoring";
@@ -150,6 +150,12 @@ export function toPublicState(
     const yourAnswerStats = viewerPlayerId
       ? computePlayerAnswerStats(viewerPlayerId, room)
       : undefined;
+    const lastResult = room.roundResults[room.roundResults.length - 1];
+    const viewerAnswer = viewerPlayerId
+      ? room.answers[viewerPlayerId]
+      : undefined;
+    const finishedRound = round ?? getRound(pack, room.roundIndex);
+
     return {
       ...base,
       winnerId: room.winnerId,
@@ -158,6 +164,23 @@ export function toPublicState(
       playerAnswerStats: isHostViewer
         ? buildAllPlayerAnswerStats(room)
         : undefined,
+      ...(finishedRound && {
+        answer: finishedRound.answer,
+        choices: finishedRound.choices,
+        imageUrl: finishedRound.imageUrl,
+        imageMode: finishedRound.mode,
+        crop: finishedRound.crop,
+        roundScores: lastResult?.scores,
+        yourAnswer: viewerAnswer?.choice,
+        yourRoundScore: viewerPlayerId
+          ? lastResult?.scores[viewerPlayerId]
+          : undefined,
+        roundPlayerAnswers: buildRoundPlayerAnswers(
+          room,
+          finishedRound.answer,
+          lastResult?.scores,
+        ),
+      }),
     };
   }
 
@@ -265,18 +288,24 @@ export async function startGame(
     return { error: "Game already started", code: "GAME_STARTED" };
   }
 
-  const now = Date.now();
-  const updated: Room = {
-    ...room,
-    status: "playing",
-    roundIndex: 0,
-    phase: "countdown",
-    phaseStartedAt: now,
-    answers: {},
-    roundResults: [],
-    version: room.version + 1,
-  };
-  await saveRoom(updated);
+  const updated = await updateRoom(code, (room) => {
+    if (room.status !== "lobby") return "noop";
+    const now = Date.now();
+    return {
+      ...room,
+      status: "playing",
+      roundIndex: 0,
+      phase: "countdown",
+      phaseStartedAt: now,
+      answers: {},
+      roundResults: [],
+    };
+  });
+
+  if (!updated) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  if (updated.status !== "playing") {
+    return { error: "Game already started", code: "GAME_STARTED" };
+  }
   return updated;
 }
 
@@ -321,10 +350,10 @@ export async function submitAnswer(
         ...room.answers,
         [player.id]: { choice, lockedAt: Date.now() },
       },
-      version: room.version + 1,
     };
 
-    return tickRoom(withAnswer, pack, Date.now());
+    // Phase advances via poll ticks — avoids racing tickRoom against concurrent polls.
+    return withAnswer;
   });
 
   if (!updated) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
@@ -351,8 +380,16 @@ export async function skipRound(
   const pack = getRoomPack(room);
   if (!pack) return { error: "Pack not found", code: "PACK_NOT_FOUND" };
 
-  const updated = skipPhase(room, pack, Date.now());
-  await saveRoom(updated);
+  const now = Date.now();
+  const updated = await updateRoom(code, (current) => {
+    if (current.status !== "playing") return "noop";
+    return skipPhase(current, pack, now);
+  });
+
+  if (!updated) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  if (updated.status !== "playing") {
+    return { error: "Game not in progress", code: "WRONG_STATUS" };
+  }
   return updated;
 }
 
@@ -366,25 +403,34 @@ export async function endGame(
   const auth = assertHost(room, hostToken, hostPin);
   if ("error" in auth) return auth;
 
-  const pack = getRoomPack(room);
-  const lastRound = pack?.rounds[room.roundIndex];
-  const updated: Room = {
-    ...room,
-    status: "finished",
-    version: room.version + 1,
-    winnerId:
-      room.winnerId ??
-      (lastRound
-        ? pickWinner(
-            room.players,
-            room.roundResults,
-            room.answers,
-            lastRound.answer,
-          )
-        : undefined),
-  };
-  await saveRoom(updated);
-  return updated;
+  const saved = await updateRoom(code, (current) => {
+    if (current.status === "finished") return current;
+    if (current.status !== "playing") return "noop";
+
+    const resolvedPack = getRoomPack(current);
+    let working = resolvedPack ? scorePendingRound(current, resolvedPack) : current;
+    const lastRound = resolvedPack
+      ? getRound(resolvedPack, working.roundIndex)
+      : undefined;
+
+    return {
+      ...working,
+      status: "finished",
+      winnerId:
+        working.winnerId ??
+        (lastRound
+          ? pickWinner(
+              working.players,
+              working.roundResults,
+              working.answers,
+              lastRound.answer,
+            )
+          : undefined),
+    };
+  });
+
+  if (!saved) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  return saved;
 }
 
 export function findPlayerByToken(room: Room, token: string): Player | undefined {
