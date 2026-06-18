@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchRoomState } from "@/lib/client";
 import type { RoomPublicState } from "@/lib/types";
 
-function pollIntervalMs(state: RoomPublicState | null): number {
+function pollIntervalMs(state: RoomPublicState | null, stopped: boolean): number {
+  if (stopped) return 0;
   if (!state) return 800;
   if (state.status === "lobby") return 800;
   if (state.status === "finished") return 5000;
@@ -27,37 +28,43 @@ export function useRoomPoll(
 ) {
   const [state, setState] = useState<RoomPublicState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stopped, setStopped] = useState(false);
   const phaseKeyRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await fetchRoomState(code, token ?? undefined);
     if (!data) {
       setError("Room not found");
+      setStopped(true);
       return;
     }
     setError(null);
+    setStopped(false);
     setState(data);
   }, [code, token]);
 
   useEffect(() => {
     if (!enabled) return;
+    setStopped(false);
+    setError(null);
     void refresh();
   }, [enabled, refresh]);
 
   useEffect(() => {
-    if (!enabled) return;
-    const interval = pollIntervalMs(state);
+    if (!enabled || stopped) return;
+    const interval = pollIntervalMs(state, stopped);
+    if (interval <= 0) return;
     const id = setInterval(() => void refresh(), interval);
     return () => clearInterval(id);
-  }, [enabled, refresh, state?.status, state?.phase, state?.roundIndex]);
+  }, [enabled, stopped, refresh, state?.status, state?.phase, state?.roundIndex]);
 
   useEffect(() => {
-    if (!enabled || state?.status !== "playing") return;
+    if (!enabled || stopped || state?.status !== "playing") return;
     const phaseKey = `${state.roundIndex}:${state.phase}`;
     if (phaseKeyRef.current === phaseKey) return;
     phaseKeyRef.current = phaseKey;
     void refresh();
-  }, [enabled, refresh, state?.roundIndex, state?.phase, state?.status]);
+  }, [enabled, stopped, refresh, state?.roundIndex, state?.phase, state?.status]);
 
   return { state, error, refresh };
 }

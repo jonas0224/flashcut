@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { CODE_ALPHABET, MAX_PLAYERS, ROUND_COUNT } from "./constants";
 import { hashHostPin, validateHostPin, verifyHostPin } from "./host-pin";
-import { phaseEndsAt, skipPhase, tickRoom, scorePendingRound } from "./phase-engine";
+import { phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase, tickRoom } from "./phase-engine";
 import { getPack, getRound, validateRound } from "./packs";
 import { getRoomPack, initCustomRounds } from "./room-pack";
 import { computeGameAnswerStats, computePlayerAnswerStats, buildRoundPlayerAnswers, buildAllPlayerAnswerStats, pickWinner } from "./scoring";
@@ -262,16 +262,27 @@ export async function syncAndGetRoom(
 ): Promise<RoomPublicState | null> {
   const now = Date.now();
 
-  const room = await updateRoom(code, (r) => {
-    if (r.status !== "playing") return r;
-    const pack = getRoomPack(r);
-    if (!pack) return r;
-    return tickRoom(r, pack, now);
-  });
-
+  let room = await loadRoom(code);
   if (!room) return null;
-  const resolvedPack = getRoomPack(room);
-  if (!resolvedPack) return null;
+  const pack = getRoomPack(room);
+  if (!pack) return null;
+
+  if (room.status === "playing" && shouldAdvance(room, now)) {
+    const saved = await updateRoom(code, (current) => {
+      if (current.status !== "playing") return "noop";
+      const currentPack = getRoomPack(current);
+      if (!currentPack || !shouldAdvance(current, now)) return "noop";
+      return tickRoom(current, currentPack, now);
+    });
+    if (saved) {
+      room = saved;
+    } else {
+      // CAS lost — project tick for this response; another worker will persist
+      room = tickRoom(room, pack, now);
+    }
+  }
+
+  const resolvedPack = getRoomPack(room) ?? pack;
   return toPublicState(room, resolvedPack, now, viewerPlayerId, isHostViewer);
 }
 

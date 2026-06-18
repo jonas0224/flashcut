@@ -93,7 +93,7 @@ export async function updateRoom(
     if (!room) return null;
 
     const updated = updater(room);
-    if (updated === "noop") return room;
+    if (updated === "noop" || updated === room) return room;
 
     const next: Room = {
       ...updated,

@@ -26,7 +26,7 @@ export default function RoundRankingsPage() {
     setToken(session.playerToken);
   }, [code, router]);
 
-  const { state } = useRoomPoll(code, token, Boolean(token));
+  const { state, error } = useRoomPoll(code, token, Boolean(token));
 
   useEffect(() => {
     if (!state) return;
@@ -50,6 +50,19 @@ export default function RoundRankingsPage() {
       <PageShell>
         <main className="flex flex-1 items-center justify-center">
           <p className="text-xl font-bold text-white">Loading rankings…</p>
+        </main>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell>
+        <main className="mx-auto flex max-w-md flex-1 flex-col items-center justify-center px-5 text-center">
+          <p className="text-xl font-bold text-white">Room not found</p>
+          <p className="mt-2 text-sm text-[#94a8c9]">
+            This game may have expired or the room code is invalid.
+          </p>
         </main>
       </PageShell>
     );

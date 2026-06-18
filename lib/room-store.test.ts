@@ -78,6 +78,17 @@ describe("updateRoom", () => {
     expect(attempts).toBeGreaterThan(1);
   });
 
+  it("does not bump version when updater returns the same room reference", async () => {
+    const room = baseRoom();
+    await saveRoom(room);
+
+    const result = await updateRoom("RACE01", (r) => r);
+    expect(result?.version).toBe(1);
+
+    const loaded = await updateRoom("RACE01", (r) => r);
+    expect(loaded?.version).toBe(1);
+  });
+
   it("keeps answers when a concurrent phase write races", async () => {
     const room = baseRoom();
     await saveRoom(room);
