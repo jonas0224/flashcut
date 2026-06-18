@@ -14,3 +14,8 @@ All rounds use photographs (no illustrations or SVGs). All rounds use **zoom** m
 | dogs-running.jpg | [Unsplash](https://unsplash.com/photos/photo-1548199973-03cce0bbc87b) |
 | sloth.jpg | [Unsplash](https://unsplash.com/photos/a-brown-and-white-sloth-hanging-from-a-tree-na--v-QNl0M) |
 | capybara.jpg | [Unsplash — Haki Ost](https://unsplash.com/photos/a-capybara-sits-on-a-concrete-ledge-outdoors-TSCir0682iI) |
+| pug-hoodie.jpg | [Unsplash](https://unsplash.com/photos/photo-1583337130417-3346a1be7dee) |
+| alpaca.jpg | [Pexels](https://www.pexels.com/photo/white-and-brown-llama-on-green-grass-field-288621/) |
+| pancakes.jpg | [Unsplash](https://unsplash.com/photos/photo-1567620905732-2d1ec7ab7445) |
+| goat.jpg | [Pexels](https://www.pexels.com/photo/white-goat-1661179/) |
+| hamster.jpg | [Pexels](https://www.pexels.com/photo/close-up-photo-of-hamster-4588065/) |

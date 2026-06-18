@@ -5,6 +5,7 @@ import { phaseEndsAt, phaseStartedAtFor, scorePendingRound, shouldAdvance, skipP
 import { getPack, getRound, validateRound } from "./packs";
 import { getRoomPack, initCustomRounds } from "./room-pack";
 import { computeGameAnswerStats, computePlayerAnswerStats, buildRoundPlayerAnswers, buildAllPlayerAnswerStats, pickWinner } from "./scoring";
+import { choicesForRoom } from "./shuffle-choices";
 import { loadRoom, saveRoom, updateRoom } from "./room-store";
 import type { Pack, Player, Room, RoomPublicState, RoundDefinition } from "./types";
 
@@ -128,6 +129,9 @@ export function toPublicState(
 ): RoomPublicState {
   const round = getRound(pack, room.roundIndex);
   const endsAt = phaseEndsAt(room, now);
+  const roundChoices = round
+    ? choicesForRoom(room.code, room.roundIndex, round)
+    : undefined;
 
   const base: RoomPublicState = {
     code: room.code,
@@ -166,7 +170,7 @@ export function toPublicState(
         : undefined,
       ...(finishedRound && {
         answer: finishedRound.answer,
-        choices: finishedRound.choices,
+        choices: choicesForRoom(room.code, room.roundIndex, finishedRound),
         imageUrl: finishedRound.imageUrl,
         imageMode: finishedRound.mode,
         crop: finishedRound.crop,
@@ -190,7 +194,7 @@ export function toPublicState(
     if (isHostViewer) {
       return {
         ...base,
-        choices: round.choices,
+        choices: roundChoices,
         imageUrl: round.imageUrl,
         imageMode: round.mode,
         crop: round.crop,
@@ -215,14 +219,14 @@ export function toPublicState(
       imageUrl: round.imageUrl,
       imageMode: round.mode,
       crop: round.crop,
-      choices: round.choices,
+      choices: roundChoices,
     };
   }
 
   if (room.phase === "guess") {
     return {
       ...base,
-      choices: round.choices,
+      choices: roundChoices,
       ...(isHostViewer
         ? {
             imageUrl: round.imageUrl,
@@ -245,7 +249,7 @@ export function toPublicState(
     imageUrl: round.imageUrl,
     imageMode: round.mode,
     crop: round.crop,
-    choices: round.choices,
+    choices: roundChoices,
     answer: round.answer,
     roundScores: lastResult?.scores,
     roundPlayerAnswers: buildRoundPlayerAnswers(

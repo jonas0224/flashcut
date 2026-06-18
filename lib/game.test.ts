@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "fs";
 import { join } from "path";
-import { COUNTDOWN_FIRST_ROUND_GRACE_MS, COUNTDOWN_SYNC_GRACE_MS, PHASE_MS, ROUND_COUNT } from "@/lib/constants";
+import { COUNTDOWN_FIRST_ROUND_GRACE_MS, COUNTDOWN_SYNC_GRACE_MS, PHASE_DISPLAY_GRACE_MS, PHASE_MS, ROUND_COUNT } from "@/lib/constants";
 import { advanceRoomOnce, allPlayersAnswered, maybeAdvanceAfterAnswer, phaseEndsAt, phaseStartedAtFor, scorePendingRound, shouldAdvance, skipPhase } from "@/lib/phase-engine";
 import { validatePack, validateRound, starterPack } from "@/lib/packs";
 import { getRoomPack } from "@/lib/room-pack";
@@ -99,7 +99,10 @@ describe("phase engine", () => {
     expect(phaseStartedAtFor("countdown", now, 1)).toBe(
       now + COUNTDOWN_SYNC_GRACE_MS,
     );
-    expect(phaseStartedAtFor("peek", now)).toBe(now);
+    expect(phaseStartedAtFor("peek", now)).toBe(now + PHASE_DISPLAY_GRACE_MS);
+    expect(phaseStartedAtFor("flashcut", now)).toBe(now + PHASE_DISPLAY_GRACE_MS);
+    expect(phaseStartedAtFor("guess", now)).toBe(now + PHASE_DISPLAY_GRACE_MS);
+    expect(phaseStartedAtFor("reveal", now)).toBe(now);
   });
 
   it("host skip from reveal starts next round at countdown", () => {

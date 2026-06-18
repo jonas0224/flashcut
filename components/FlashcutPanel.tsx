@@ -1,26 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncedPhaseTimer } from "@/hooks/useSyncedPhaseTimer";
 
 type Props = {
+  phaseStartedAt: number;
   phaseEndsAt: number;
   durationMs: number;
   compact?: boolean;
 };
 
-export function FlashcutPanel({ phaseEndsAt, durationMs, compact = false }: Props) {
-  const [remainingMs, setRemainingMs] = useState(durationMs);
-
-  useEffect(() => {
-    const tick = () => {
-      setRemainingMs(Math.max(0, phaseEndsAt - Date.now()));
-    };
-    tick();
-    const id = setInterval(tick, 50);
-    return () => clearInterval(id);
-  }, [phaseEndsAt]);
-
-  const pct = Math.min(100, (remainingMs / durationMs) * 100);
+export function FlashcutPanel({
+  phaseStartedAt,
+  phaseEndsAt,
+  durationMs,
+  compact = false,
+}: Props) {
+  const { pct, inGrace } = useSyncedPhaseTimer(
+    phaseStartedAt,
+    phaseEndsAt,
+    durationMs,
+  );
 
   return (
     <div
@@ -37,8 +36,10 @@ export function FlashcutPanel({ phaseEndsAt, durationMs, compact = false }: Prop
       <h2 className="fc-flashcut-title">FLASHCUT</h2>
       <p className="fc-flashcut-subtitle">What was it?</p>
 
-      <p className={`fc-flashcut-hint max-w-xs font-semibold text-white/60 ${compact ? "mt-3 text-xs" : "mt-6 text-sm"}`}>
-        Picture it in your mind — answers coming up
+      <p
+        className={`fc-flashcut-hint max-w-xs font-semibold text-white/60 ${compact ? "mt-3 text-xs" : "mt-6 text-sm"}`}
+      >
+        {inGrace ? "Get ready…" : "Picture it in your mind — answers coming up"}
       </p>
 
       <div className={`fc-flashcut-timer w-full max-w-[14rem] ${compact ? "mt-4" : "mt-8"}`}>

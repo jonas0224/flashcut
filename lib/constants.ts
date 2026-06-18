@@ -11,6 +11,8 @@ export const PHASE_MS: Record<Phase, number> = {
 /** Buffer before countdown ticks — lets players load the play screen after redirects. */
 export const COUNTDOWN_FIRST_ROUND_GRACE_MS = 6500;
 export const COUNTDOWN_SYNC_GRACE_MS = 4000;
+/** Buffer before peek / flashcut / guess timers tick — lets clients render the phase UI. */
+export const PHASE_DISPLAY_GRACE_MS = 1500;
 
 /** Phases that only advance when the host presses Next (no auto timer). */
 export const HOST_ADVANCE_PHASES: Phase[] = ["reveal"];
@@ -23,7 +25,7 @@ export const PHASE_ORDER: Phase[] = [
   "reveal",
 ];
 
-export const ROUND_COUNT = 10;
+export const ROUND_COUNT = 15;
 /** Max points for an instant correct answer (Kahoot-style speed scoring). */
 export const MAX_ROUND_POINTS = 1000;
 /** Floor for a correct answer locked at the end of the guess window. */

@@ -1,4 +1,4 @@
-import { COUNTDOWN_FIRST_ROUND_GRACE_MS, COUNTDOWN_SYNC_GRACE_MS, HOST_ADVANCE_PHASES, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
+import { COUNTDOWN_FIRST_ROUND_GRACE_MS, COUNTDOWN_SYNC_GRACE_MS, HOST_ADVANCE_PHASES, PHASE_DISPLAY_GRACE_MS, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
 import { pickWinner, scoreCurrentRound } from "./scoring";
 import type { Pack, Phase, Room } from "./types";
 
@@ -8,6 +8,9 @@ export function phaseStartedAtFor(phase: Phase, now: number, roundIndex = 0): nu
       now +
       (roundIndex === 0 ? COUNTDOWN_FIRST_ROUND_GRACE_MS : COUNTDOWN_SYNC_GRACE_MS)
     );
+  }
+  if (phase === "peek" || phase === "flashcut" || phase === "guess") {
+    return now + PHASE_DISPLAY_GRACE_MS;
   }
   return now;
 }

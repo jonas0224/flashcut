@@ -1,32 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncedPhaseTimer } from "@/hooks/useSyncedPhaseTimer";
 
 export function PhaseBar({
+  phaseStartedAt,
   phaseEndsAt,
   durationMs,
   label,
   urgentLastSeconds = 0,
 }: {
+  phaseStartedAt: number;
   phaseEndsAt: number;
   durationMs: number;
   label: string;
   /** Pulse amber when this many seconds remain (guess phase only). */
   urgentLastSeconds?: number;
 }) {
-  const [remainingMs, setRemainingMs] = useState(0);
+  const { pct, seconds } = useSyncedPhaseTimer(
+    phaseStartedAt,
+    phaseEndsAt,
+    durationMs,
+  );
 
-  useEffect(() => {
-    const tick = () => {
-      setRemainingMs(Math.max(0, phaseEndsAt - Date.now()));
-    };
-    tick();
-    const id = setInterval(tick, 100);
-    return () => clearInterval(id);
-  }, [phaseEndsAt]);
-
-  const pct = Math.min(100, (remainingMs / durationMs) * 100);
-  const seconds = Math.ceil(remainingMs / 1000);
   const urgent =
     urgentLastSeconds > 0 && seconds <= urgentLastSeconds && seconds > 0;
 

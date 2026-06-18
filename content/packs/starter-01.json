@@ -1,6 +1,6 @@
 {
   "id": "starter-01",
-  "name": "Starter pack — funny (10 rounds)",
+  "name": "Starter pack — funny (15 rounds)",
   "rounds": [
     {
       "id": "funny-dog-shades-01",
@@ -8,8 +8,8 @@
       "imageUrl": "/packs/starter-01/dog-sunglasses.jpg",
       "crop": { "x": 0.5, "y": 0.35, "scale": 5 },
       "choices": [
-        "Dog in sunglasses",
         "Wet cat",
+        "Dog in sunglasses",
         "Baby sloth",
         "Parrot"
       ],
@@ -21,7 +21,7 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/rubber-duck.jpg",
       "crop": { "x": 0.55, "y": 0.45, "scale": 4 },
-      "choices": ["Rubber duck", "Lemon", "Goldfish", "Tennis ball"],
+      "choices": ["Lemon", "Goldfish", "Rubber duck", "Tennis ball"],
       "answer": "Rubber duck",
       "category": "objects"
     },
@@ -30,7 +30,7 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/llama.jpg",
       "crop": { "x": 0.5, "y": 0.4, "scale": 5 },
-      "choices": ["Llama", "Giraffe", "Camel", "Horse"],
+      "choices": ["Giraffe", "Camel", "Horse", "Llama"],
       "answer": "Llama",
       "category": "animals"
     },
@@ -48,7 +48,7 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/donut.jpg",
       "crop": { "x": 0.5, "y": 0.5, "scale": 4 },
-      "choices": ["Glazed donut", "Pizza", "Bagel", "Cookie"],
+      "choices": ["Pizza", "Bagel", "Cookie", "Glazed donut"],
       "answer": "Glazed donut",
       "category": "food"
     },
@@ -57,7 +57,7 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/burger.jpg",
       "crop": { "x": 0.5, "y": 0.45, "scale": 5 },
-      "choices": ["Cheeseburger", "Taco", "Sushi roll", "Hot dog"],
+      "choices": ["Taco", "Cheeseburger", "Sushi roll", "Hot dog"],
       "answer": "Cheeseburger",
       "category": "food"
     },
@@ -67,9 +67,9 @@
       "imageUrl": "/packs/starter-01/dinosaur-costume.jpg",
       "crop": { "x": 0.5, "y": 0.4, "scale": 4 },
       "choices": [
-        "Inflatable T-rex",
         "Gorilla suit",
         "Banana costume",
+        "Inflatable T-rex",
         "Wizard robe"
       ],
       "answer": "Inflatable T-rex",
@@ -80,7 +80,7 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/dogs-running.jpg",
       "crop": { "x": 0.45, "y": 0.55, "scale": 5 },
-      "choices": ["Dogs running", "Cats playing", "Horses galloping", "Birds flying"],
+      "choices": ["Cats playing", "Horses galloping", "Dogs running", "Birds flying"],
       "answer": "Dogs running",
       "category": "animals"
     },
@@ -89,7 +89,7 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/sloth.jpg",
       "crop": { "x": 0.5, "y": 0.4, "scale": 6 },
-      "choices": ["Sloth", "Monkey", "Koala", "Lemur"],
+      "choices": ["Monkey", "Sloth", "Koala", "Lemur"],
       "answer": "Sloth",
       "category": "animals"
     },
@@ -98,8 +98,53 @@
       "mode": "zoom",
       "imageUrl": "/packs/starter-01/capybara.jpg",
       "crop": { "x": 0.55, "y": 0.45, "scale": 5 },
-      "choices": ["Capybara", "Beaver", "Guinea pig", "Hippopotamus"],
+      "choices": ["Beaver", "Guinea pig", "Hippopotamus", "Capybara"],
       "answer": "Capybara",
+      "category": "animals"
+    },
+    {
+      "id": "funny-pug-hoodie-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/pug-hoodie.jpg",
+      "crop": { "x": 0.5, "y": 0.42, "scale": 5 },
+      "choices": ["Bulldog in raincoat", "Pug in hoodie", "Chihuahua in sweater", "Corgi in scarf"],
+      "answer": "Pug in hoodie",
+      "category": "animals"
+    },
+    {
+      "id": "funny-sheep-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/alpaca-cand5.jpg",
+      "crop": { "x": 0.52, "y": 0.38, "scale": 5 },
+      "choices": ["Sheep sleeping", "Goat dancing", "Alpaca eating", "Dog working"],
+      "answer": "Dog working",
+      "category": "animals"
+    },
+    {
+      "id": "funny-pancakes-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/pancakes.jpg",
+      "crop": { "x": 0.5, "y": 0.5, "scale": 4 },
+      "choices": ["Waffle", "French toast", "Crepe", "Pancake"],
+      "answer": "Pancake",
+      "category": "food"
+    },
+    {
+      "id": "funny-parrot-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/goat.jpg",
+      "crop": { "x": 0.52, "y": 0.42, "scale": 6 },
+      "choices": ["Sheep", "Grumpy goat", "Parrot", "Highland cow"],
+      "answer": "Parrot",
+      "category": "animals"
+    },
+    {
+      "id": "funny-rabbit-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/hamster.jpg",
+      "crop": { "x": 0.55, "y": 0.48, "scale": 5 },
+      "choices": ["Mouse", "Gerbil", "Rabbit", "Guinea pig"],
+      "answer": "Rabbit",
       "category": "animals"
     }
   ]

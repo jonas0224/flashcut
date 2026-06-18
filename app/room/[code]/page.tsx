@@ -144,6 +144,7 @@ export default function PlayerRoomPage() {
         {(state.phase === "peek" || state.phase === "guess") && (
           <div className="mb-4 fc-phase-enter">
             <PhaseBar
+              phaseStartedAt={state.phaseStartedAt}
               phaseEndsAt={state.phaseEndsAt}
               durationMs={phaseDuration}
               label={PHASE_LABELS[state.phase]}
@@ -178,6 +179,7 @@ export default function PlayerRoomPage() {
         {state.phase === "flashcut" && (
           <PhasePanel phaseKey={phaseKey} panel={false}>
             <FlashcutPanel
+              phaseStartedAt={state.phaseStartedAt}
               phaseEndsAt={state.phaseEndsAt}
               durationMs={phaseDuration}
             />

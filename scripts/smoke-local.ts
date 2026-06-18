@@ -3,6 +3,8 @@
  * Local API smoke test — run while `npm run dev` is up.
  * Usage: npm run smoke:local
  */
+import starterPack from "../content/packs/starter-01.json";
+
 const BASE = process.env.FLASHCUT_URL ?? "http://localhost:3000";
 
 async function api<T>(
@@ -93,7 +95,8 @@ async function main() {
     }
 
     if (state.data.phase === "guess" && state.data.choices?.length) {
-      const correct = state.data.choices[0];
+      const correct = starterPack.rounds[state.data.roundIndex]?.answer;
+      if (!correct) throw new Error("missing pack answer for round");
       await api(`/api/rooms/${code}/answer`, {
         method: "POST",
         headers: {

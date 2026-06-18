@@ -153,6 +153,7 @@ export default function HostPage() {
                 )}
                 {state.phase === "flashcut" && (
                   <FlashcutPanel
+                    phaseStartedAt={state.phaseStartedAt}
                     phaseEndsAt={state.phaseEndsAt}
                     durationMs={PHASE_MS.flashcut}
                     compact
