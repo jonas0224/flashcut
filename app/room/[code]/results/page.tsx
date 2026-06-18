@@ -17,12 +17,16 @@ export default function ResultsPage() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
+    const player = getPlayerSession(code);
+    if (player) {
+      setToken(player.playerToken);
+      return;
+    }
     if (getHostSession(code)) {
       router.replace(`/room/${code}/host/results`);
       return;
     }
-    const session = getPlayerSession(code);
-    setToken(session?.playerToken ?? null);
+    router.replace(`/join/${code}`);
   }, [code, router]);
 
   const { state } = useRoomPoll(code, token, true);

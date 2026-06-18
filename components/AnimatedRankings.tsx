@@ -12,7 +12,7 @@ import {
 } from "@/lib/rankings";
 
 const ROW_HEIGHT = 52;
-const ROW_HEIGHT_COMPACT = 36;
+const ROW_HEIGHT_COMPACT = 40;
 const ROW_GAP = 8;
 const ROW_GAP_COMPACT = 5;
 const SLIDE_MS = 900;
@@ -81,11 +81,14 @@ function RankingRow({
         zIndex: rankDelta ? 3 : 1,
       }}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="fc-rank-medal w-8 shrink-0 text-center text-lg leading-none">
           {rankLabel(medalRank)}
         </span>
-        <span className={`min-w-0 ${compact ? "truncate text-xs" : "text-sm"}`}>
+        <span
+          className={`min-w-0 flex-1 ${compact ? "text-xs leading-snug line-clamp-2" : "truncate text-sm"}`}
+          title={player.nickname}
+        >
           {player.nickname}
         </span>
       </div>

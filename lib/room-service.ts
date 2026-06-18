@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { CODE_ALPHABET, MAX_PLAYERS, ROUND_COUNT } from "./constants";
 import { hashHostPin, validateHostPin, verifyHostPin } from "./host-pin";
-import { phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase, tickRoom, maybeAdvanceAfterAnswer } from "./phase-engine";
+import { phaseEndsAt, phaseStartedAtFor, scorePendingRound, shouldAdvance, skipPhase, tickRoom, maybeAdvanceAfterAnswer } from "./phase-engine";
 import { getPack, getRound, validateRound } from "./packs";
 import { getRoomPack, initCustomRounds } from "./room-pack";
 import { computeGameAnswerStats, computePlayerAnswerStats, buildRoundPlayerAnswers, buildAllPlayerAnswerStats, pickWinner } from "./scoring";
@@ -308,7 +308,7 @@ export async function startGame(
       status: "playing",
       roundIndex: 0,
       phase: "countdown",
-      phaseStartedAt: now,
+      phaseStartedAt: phaseStartedAtFor("countdown", now),
       answers: {},
       roundResults: [],
     };

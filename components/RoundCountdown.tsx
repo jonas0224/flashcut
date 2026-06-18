@@ -28,6 +28,11 @@ export function RoundCountdown({
     if (waitingForHost) return;
     const tick = () => {
       const now = Date.now();
+      if (now < phaseStartedAt) {
+        setRemainingMs(durationMs);
+        setSecondsLeft(totalSeconds);
+        return;
+      }
       const remaining = Math.max(0, phaseEndsAt - now);
       const elapsedSec = Math.floor((now - phaseStartedAt) / 1000);
       const left = Math.max(0, totalSeconds - elapsedSec);

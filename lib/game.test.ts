@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "fs";
 import { join } from "path";
-import { PHASE_MS, ROUND_COUNT } from "@/lib/constants";
-import { advanceRoomOnce, allPlayersAnswered, maybeAdvanceAfterAnswer, phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase } from "@/lib/phase-engine";
+import { COUNTDOWN_SYNC_GRACE_MS, PHASE_MS, ROUND_COUNT } from "@/lib/constants";
+import { advanceRoomOnce, allPlayersAnswered, maybeAdvanceAfterAnswer, phaseEndsAt, phaseStartedAtFor, scorePendingRound, shouldAdvance, skipPhase } from "@/lib/phase-engine";
 import { validatePack, validateRound, starterPack } from "@/lib/packs";
 import { getRoomPack } from "@/lib/room-pack";
 import { scoreRound } from "@/lib/scoring";
@@ -77,6 +77,24 @@ describe("phase engine", () => {
     expect(shouldAdvance(room, now)).toBe(true);
     const next = advanceRoomOnce(room, starterPack as never, now);
     expect(next.phase).toBe("peek");
+  });
+
+  it("does not tick countdown during sync grace", () => {
+    const startedAt = 10_000;
+    const room = {
+      ...baseRoom(),
+      phase: "countdown" as const,
+      phaseStartedAt: startedAt,
+    };
+    expect(shouldAdvance(room, startedAt - 1)).toBe(false);
+    expect(shouldAdvance(room, startedAt + PHASE_MS.countdown - 1)).toBe(false);
+    expect(shouldAdvance(room, startedAt + PHASE_MS.countdown)).toBe(true);
+  });
+
+  it("phaseStartedAtFor delays countdown start", () => {
+    const now = 5000;
+    expect(phaseStartedAtFor("countdown", now)).toBe(now + COUNTDOWN_SYNC_GRACE_MS);
+    expect(phaseStartedAtFor("peek", now)).toBe(now);
   });
 
   it("host skip from reveal starts next round at countdown", () => {

@@ -1,6 +1,11 @@
-import { HOST_ADVANCE_PHASES, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
+import { COUNTDOWN_SYNC_GRACE_MS, HOST_ADVANCE_PHASES, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
 import { pickWinner, scoreCurrentRound } from "./scoring";
 import type { Pack, Phase, Room } from "./types";
+
+export function phaseStartedAtFor(phase: Phase, now: number): number {
+  if (phase === "countdown") return now + COUNTDOWN_SYNC_GRACE_MS;
+  return now;
+}
 
 export function allPlayersAnswered(room: Room): boolean {
   const playerIds = Object.keys(room.players);
@@ -85,7 +90,7 @@ export function advanceRoomOnce(
   if (next.phase === "reveal") {
     const lastAnswers = { ...next.answers };
     const advanced = finishOrNextRound(next, pack, lastAnswers);
-    advanced.phaseStartedAt = now;
+    advanced.phaseStartedAt = phaseStartedAtFor(advanced.phase, now);
     return advanced;
   }
 
@@ -93,7 +98,7 @@ export function advanceRoomOnce(
   if (!upcoming) return next;
 
   next.phase = upcoming;
-  next.phaseStartedAt = now;
+  next.phaseStartedAt = phaseStartedAtFor(upcoming, now);
   return next;
 }
 
@@ -133,7 +138,7 @@ export function skipPhase(room: Room, pack: Pack, now: number): Room {
   if (next.phase === "reveal") {
     const lastAnswers = { ...next.answers };
     const advanced = finishOrNextRound(next, pack, lastAnswers);
-    advanced.phaseStartedAt = now;
+    advanced.phaseStartedAt = phaseStartedAtFor(advanced.phase, now);
     return advanced;
   }
 
@@ -141,7 +146,7 @@ export function skipPhase(room: Room, pack: Pack, now: number): Room {
   if (!upcoming) return next;
 
   next.phase = upcoming;
-  next.phaseStartedAt = now;
+  next.phaseStartedAt = phaseStartedAtFor(upcoming, now);
   return next;
 }
 
