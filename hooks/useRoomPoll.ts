@@ -20,6 +20,18 @@ function pollIntervalMs(state: RoomPublicState | null): number {
   return 1500;
 }
 
+/** Poll at phase end when possible so transitions land on time, not on a fixed cadence. */
+function nextPollDelayMs(state: RoomPublicState | null): number {
+  const base = pollIntervalMs(state);
+  if (!state || state.status !== "playing" || state.phase === "reveal") {
+    return base;
+  }
+
+  const msUntilEnd = state.phaseEndsAt - Date.now();
+  if (msUntilEnd <= 0) return 100;
+  return Math.min(msUntilEnd + 50, base);
+}
+
 /** Cheap equality — skip React updates when poll payload is unchanged. */
 function stateSnapshot(state: RoomPublicState): string {
   const players = state.players
@@ -62,7 +74,9 @@ export function useRoomPoll(
   const stateRef = useRef<RoomPublicState | null>(null);
   const snapshotRef = useRef<string | null>(null);
   const phaseKeyRef = useRef<string | null>(null);
-  const inFlightRef = useRef(false);
+  const refreshChainRef = useRef<Promise<RoomPublicState | null>>(
+    Promise.resolve(null),
+  );
   const visibleRef = useRef(
     typeof document === "undefined" ? true : document.visibilityState === "visible",
   );
@@ -81,10 +95,8 @@ export function useRoomPoll(
   }, []);
 
   const refresh = useCallback(
-    async (force = false) => {
-      if (inFlightRef.current) return;
-      inFlightRef.current = true;
-      try {
+    async (force = false): Promise<RoomPublicState | null> => {
+      const run = async (): Promise<RoomPublicState | null> => {
         const data = await fetchRoomState(
           codeRef.current,
           tokenRef.current ?? undefined,
@@ -92,13 +104,19 @@ export function useRoomPoll(
         if (!data) {
           setError("Room not found");
           setStopped(true);
-          return;
+          return null;
         }
         if (force) snapshotRef.current = null;
         applyState(data);
-      } finally {
-        inFlightRef.current = false;
-      }
+        return data;
+      };
+
+      const next = refreshChainRef.current.then(run, run);
+      refreshChainRef.current = next.then(
+        () => null,
+        () => null,
+      );
+      return next;
     },
     [applyState],
   );
@@ -107,6 +125,7 @@ export function useRoomPoll(
     snapshotRef.current = null;
     phaseKeyRef.current = null;
     stateRef.current = null;
+    refreshChainRef.current = Promise.resolve(null);
     setStopped(false);
     setError(null);
     setState(null);
@@ -139,7 +158,7 @@ export function useRoomPoll(
       }
       await refresh();
       if (cancelled) return;
-      schedule(pollIntervalMs(stateRef.current));
+      schedule(nextPollDelayMs(stateRef.current));
     };
 
     void loop();
@@ -160,6 +179,6 @@ export function useRoomPoll(
   return {
     state,
     error,
-    refresh: () => refresh(true),
+    refresh,
   };
 }

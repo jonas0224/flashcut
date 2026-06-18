@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { LobbyPlayerChips } from "@/components/PlayerChip";
 import { fetchAccessConfig, savePlayerSession } from "@/lib/client";
@@ -19,6 +19,7 @@ export default function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
   const [playerToken, setPlayerToken] = useState<string | null>(null);
+  const redirectingRef = useRef(false);
 
   const { state, refresh } = useRoomPoll(code, playerToken, joined);
 
@@ -34,10 +35,12 @@ export default function JoinPage() {
   }, []);
 
   useEffect(() => {
-    if (state?.status === "playing") {
-      void refresh();
+    if (state?.status !== "playing" || redirectingRef.current) return;
+    redirectingRef.current = true;
+    void (async () => {
+      await refresh(true);
       router.replace(`/room/${code}`);
-    }
+    })();
   }, [state?.status, code, router, refresh]);
 
   async function handleJoin(e: React.FormEvent) {

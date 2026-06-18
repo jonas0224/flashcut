@@ -97,6 +97,16 @@ export function advanceRoomOnce(
   return next;
 }
 
+/** After recording an answer, advance to reveal when every player has locked in. */
+export function maybeAdvanceAfterAnswer(
+  room: Room,
+  pack: Pack,
+  now: number,
+): Room {
+  if (room.phase !== "guess" || !allPlayersAnswered(room)) return room;
+  return advanceRoomOnce(room, pack, now);
+}
+
 /** Advance at most one phase boundary per call (safe for concurrent polls). */
 export function tickRoom(room: Room, pack: Pack, now: number): Room {
   if (!shouldAdvance(room, now)) return room;

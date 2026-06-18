@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync } from "fs";
 import { join } from "path";
 import { PHASE_MS, ROUND_COUNT } from "@/lib/constants";
-import { advanceRoomOnce, allPlayersAnswered, phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase } from "@/lib/phase-engine";
+import { advanceRoomOnce, allPlayersAnswered, maybeAdvanceAfterAnswer, phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase } from "@/lib/phase-engine";
 import { validatePack, validateRound, starterPack } from "@/lib/packs";
 import { getRoomPack } from "@/lib/room-pack";
 import { scoreRound } from "@/lib/scoring";
@@ -125,6 +125,43 @@ describe("phase engine", () => {
     expect(shouldAdvance(room, 1500)).toBe(true);
     const next = advanceRoomOnce(room, starterPack as never, 1500);
     expect(next.phase).toBe("reveal");
+  });
+
+  it("maybeAdvanceAfterAnswer scores and reveals when everyone answered", () => {
+    const round0 = starterPack.rounds[0] as RoundDefinition;
+    const correct = round0.answer;
+    const room = {
+      ...baseRoom(),
+      phase: "guess" as const,
+      phaseStartedAt: 1000,
+      answers: { p1: { choice: correct, lockedAt: 1100 } },
+    };
+    const next = maybeAdvanceAfterAnswer(room, starterPack as never, 1500);
+    expect(next.phase).toBe("reveal");
+    expect(next.roundResults).toHaveLength(1);
+    expect(next.roundResults[0].scores.p1).toBeGreaterThan(0);
+  });
+
+  it("maybeAdvanceAfterAnswer stays in guess until everyone answers", () => {
+    const room = {
+      ...baseRoom(),
+      phase: "guess" as const,
+      players: {
+        ...baseRoom().players,
+        p2: {
+          id: "p2",
+          nickname: "B",
+          token: "t2",
+          totalScore: 0,
+          roundsCorrect: 0,
+          joinedAt: 1,
+        },
+      },
+      answers: { p1: { choice: "A", lockedAt: 1500 } },
+    };
+    const next = maybeAdvanceAfterAnswer(room, starterPack as never, 1500);
+    expect(next.phase).toBe("guess");
+    expect(next.roundResults).toHaveLength(0);
   });
 
   it("scorePendingRound records answers when ending from guess", () => {

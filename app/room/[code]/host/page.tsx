@@ -16,6 +16,7 @@ import { useRoomPoll } from "@/hooks/useRoomPoll";
 import { getHostSession, hostAuthHeaders } from "@/lib/client";
 import { PHASE_MS } from "@/lib/constants";
 import { hostAdvanceLabel, isHostAdvancePrimary } from "@/lib/phase-engine";
+import { roomPhaseKey, waitForRoomTransition } from "@/lib/room-flow";
 
 export default function HostPage() {
   const params = useParams();
@@ -41,15 +42,27 @@ export default function HostPage() {
     }
   }, [state?.status, code, router]);
 
-  async function hostAction(path: string) {
-    if (!hostToken) return;
+  async function hostAction(path: "start" | "skip" | "end") {
+    if (!hostToken || busy) return;
+    const beforeKey = roomPhaseKey(state);
     setBusy(true);
     try {
-      await fetch(`/api/rooms/${code}/${path}`, {
+      const res = await fetch(`/api/rooms/${code}/${path}`, {
         method: "POST",
         headers: hostAuthHeaders(code, hostToken),
       });
-      await refresh();
+      if (!res.ok) return;
+
+      await waitForRoomTransition(
+        refresh,
+        beforeKey,
+        (next) =>
+          path === "end"
+            ? next.status === "finished"
+            : path === "start"
+              ? next.status === "playing"
+              : roomPhaseKey(next) !== beforeKey,
+      );
     } finally {
       setBusy(false);
     }

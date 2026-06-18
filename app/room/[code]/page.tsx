@@ -28,6 +28,7 @@ export default function PlayerRoomPage() {
   const [token, setToken] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const guessRoundRef = useRef(-1);
 
   useEffect(() => {
@@ -39,29 +40,48 @@ export default function PlayerRoomPage() {
     setToken(session.playerToken);
   }, [code, router]);
 
-  const { state } = useRoomPoll(code, token, Boolean(token));
+  const { state, refresh } = useRoomPoll(code, token, Boolean(token));
 
   useEffect(() => {
-    if (state?.status === "lobby") router.replace(`/join/${code}`);
-    if (state?.status === "finished") router.replace(`/room/${code}/results`);
+    if (state?.status === "lobby") {
+      router.replace(`/join/${code}`);
+      return;
+    }
+    if (state?.status === "finished") {
+      router.replace(`/room/${code}/results`);
+      return;
+    }
     if (state?.status === "playing" && state.phase === "reveal") {
+      if (selected && state.yourAnswer == null) {
+        void refresh(true);
+        return;
+      }
       router.replace(`/room/${code}/rankings`);
     }
-  }, [state?.status, state?.phase, code, router]);
+  }, [
+    state?.status,
+    state?.phase,
+    state?.yourAnswer,
+    selected,
+    code,
+    router,
+    refresh,
+  ]);
 
   useEffect(() => {
     if (state?.phase !== "guess") return;
     if (state.roundIndex === guessRoundRef.current) return;
     guessRoundRef.current = state.roundIndex;
     setSelected(null);
+    setSubmitError(null);
   }, [state?.roundIndex, state?.phase]);
 
   async function submitChoice(choice: string) {
-    if (!token || state?.phase !== "guess" || selected !== null) return;
-    setSelected(choice);
+    if (!token || state?.phase !== "guess" || selected !== null || submitting) return;
+    setSubmitError(null);
     setSubmitting(true);
     try {
-      for (let attempt = 0; attempt < 4; attempt++) {
+      for (let attempt = 0; attempt < 8; attempt++) {
         const res = await fetch(`/api/rooms/${code}/answer`, {
           method: "POST",
           headers: {
@@ -70,14 +90,24 @@ export default function PlayerRoomPage() {
           },
           body: JSON.stringify({ choice }),
         });
-        if (res.ok) return;
+        if (res.ok) {
+          setSelected(choice);
+          await refresh(true);
+          return;
+        }
         const data = (await res.json().catch(() => null)) as {
           code?: string;
+          error?: string;
         } | null;
-        if (data?.code === "WRONG_PHASE" && attempt < 3) {
-          await new Promise((r) => setTimeout(r, 120));
+        const retryable =
+          data?.code === "WRONG_PHASE" ||
+          data?.code === "ROOM_NOT_FOUND" ||
+          data?.code === "SAVE_FAILED";
+        if (retryable && attempt < 7) {
+          await new Promise((r) => setTimeout(r, attempt < 3 ? 120 : 250));
           continue;
         }
+        setSubmitError(data?.error ?? "Could not save your answer. Try again.");
         return;
       }
     } finally {
@@ -178,7 +208,12 @@ export default function PlayerRoomPage() {
                 />
               ))}
             </div>
-            {selected && (
+            {submitError && (
+              <p className="fc-choice-error fc-phase-enter" role="alert">
+                {submitError}
+              </p>
+            )}
+            {selected && !submitError && (
               <p className="fc-choice-locked fc-phase-enter">
                 Answer locked — hang tight!
               </p>

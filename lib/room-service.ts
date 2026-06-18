@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { CODE_ALPHABET, MAX_PLAYERS, ROUND_COUNT } from "./constants";
 import { hashHostPin, validateHostPin, verifyHostPin } from "./host-pin";
-import { phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase, tickRoom } from "./phase-engine";
+import { phaseEndsAt, scorePendingRound, shouldAdvance, skipPhase, tickRoom, maybeAdvanceAfterAnswer } from "./phase-engine";
 import { getPack, getRound, validateRound } from "./packs";
 import { getRoomPack, initCustomRounds } from "./room-pack";
 import { computeGameAnswerStats, computePlayerAnswerStats, buildRoundPlayerAnswers, buildAllPlayerAnswerStats, pickWinner } from "./scoring";
@@ -277,8 +277,9 @@ export async function syncAndGetRoom(
     if (saved) {
       room = saved;
     } else {
-      // CAS lost — project tick for this response; another worker will persist
-      room = tickRoom(room, pack, now);
+      // CAS lost — re-read Redis; do not tick a stale snapshot (can drop answers).
+      const fresh = await loadRoom(code);
+      if (fresh) room = fresh;
     }
   }
 
@@ -328,46 +329,56 @@ export async function submitAnswer(
   let playerId: string | undefined;
   let reject: { error: string; code: string } | undefined;
 
-  const updated = await updateRoom(code, (room) => {
-    const player = Object.values(room.players).find((p) => p.token === playerToken);
-    if (!player) {
-      reject = { error: "Not authorized", code: "UNAUTHORIZED" };
-      return "noop";
+  const updated = await updateRoom(
+    code,
+    (room) => {
+      const player = Object.values(room.players).find((p) => p.token === playerToken);
+      if (!player) {
+        reject = { error: "Not authorized", code: "UNAUTHORIZED" };
+        return "noop";
+      }
+      playerId = player.id;
+
+      if (room.status !== "playing" || room.phase !== "guess") {
+        reject = { error: "Not in guess phase", code: "WRONG_PHASE" };
+        return "noop";
+      }
+
+      if (room.answers[player.id]) return "noop";
+
+      const pack = getRoomPack(room);
+      if (!pack) {
+        reject = { error: "Pack not found", code: "PACK_NOT_FOUND" };
+        return "noop";
+      }
+
+      const round = getRound(pack, room.roundIndex);
+      if (!round || !round.choices.includes(choice as (typeof round.choices)[number])) {
+        reject = { error: "Invalid choice", code: "INVALID_CHOICE" };
+        return "noop";
+      }
+
+      const withAnswer: Room = {
+        ...room,
+        answers: {
+          ...room.answers,
+          [player.id]: { choice, lockedAt: Date.now() },
+        },
+      };
+
+      // When everyone has answered, score and move to reveal in the same write.
+      return maybeAdvanceAfterAnswer(withAnswer, pack, Date.now());
+    },
+    32,
+  );
+
+  if (!updated) {
+    const existing = await loadRoom(code);
+    if (existing && playerId && existing.answers[playerId]) {
+      return existing;
     }
-    playerId = player.id;
-
-    if (room.status !== "playing" || room.phase !== "guess") {
-      reject = { error: "Not in guess phase", code: "WRONG_PHASE" };
-      return "noop";
-    }
-
-    if (room.answers[player.id]) return "noop";
-
-    const pack = getRoomPack(room);
-    if (!pack) {
-      reject = { error: "Pack not found", code: "PACK_NOT_FOUND" };
-      return "noop";
-    }
-
-    const round = getRound(pack, room.roundIndex);
-    if (!round || !round.choices.includes(choice as (typeof round.choices)[number])) {
-      reject = { error: "Invalid choice", code: "INVALID_CHOICE" };
-      return "noop";
-    }
-
-    const withAnswer: Room = {
-      ...room,
-      answers: {
-        ...room.answers,
-        [player.id]: { choice, lockedAt: Date.now() },
-      },
-    };
-
-    // Phase advances via poll ticks — avoids racing tickRoom against concurrent polls.
-    return withAnswer;
-  });
-
-  if (!updated) return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+    return { error: "Room not found", code: "ROOM_NOT_FOUND" };
+  }
   if (reject) return reject;
   if (playerId && !updated.answers[playerId]) {
     return { error: "Answer not saved", code: "SAVE_FAILED" };
