@@ -1,9 +1,14 @@
-import { COUNTDOWN_SYNC_GRACE_MS, HOST_ADVANCE_PHASES, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
+import { COUNTDOWN_FIRST_ROUND_GRACE_MS, COUNTDOWN_SYNC_GRACE_MS, HOST_ADVANCE_PHASES, PHASE_MS, PHASE_ORDER, ROUND_COUNT } from "./constants";
 import { pickWinner, scoreCurrentRound } from "./scoring";
 import type { Pack, Phase, Room } from "./types";
 
-export function phaseStartedAtFor(phase: Phase, now: number): number {
-  if (phase === "countdown") return now + COUNTDOWN_SYNC_GRACE_MS;
+export function phaseStartedAtFor(phase: Phase, now: number, roundIndex = 0): number {
+  if (phase === "countdown") {
+    return (
+      now +
+      (roundIndex === 0 ? COUNTDOWN_FIRST_ROUND_GRACE_MS : COUNTDOWN_SYNC_GRACE_MS)
+    );
+  }
   return now;
 }
 
@@ -90,7 +95,7 @@ export function advanceRoomOnce(
   if (next.phase === "reveal") {
     const lastAnswers = { ...next.answers };
     const advanced = finishOrNextRound(next, pack, lastAnswers);
-    advanced.phaseStartedAt = phaseStartedAtFor(advanced.phase, now);
+    advanced.phaseStartedAt = phaseStartedAtFor(advanced.phase, now, advanced.roundIndex);
     return advanced;
   }
 
@@ -98,7 +103,7 @@ export function advanceRoomOnce(
   if (!upcoming) return next;
 
   next.phase = upcoming;
-  next.phaseStartedAt = phaseStartedAtFor(upcoming, now);
+  next.phaseStartedAt = phaseStartedAtFor(upcoming, now, next.roundIndex);
   return next;
 }
 
@@ -138,7 +143,7 @@ export function skipPhase(room: Room, pack: Pack, now: number): Room {
   if (next.phase === "reveal") {
     const lastAnswers = { ...next.answers };
     const advanced = finishOrNextRound(next, pack, lastAnswers);
-    advanced.phaseStartedAt = phaseStartedAtFor(advanced.phase, now);
+    advanced.phaseStartedAt = phaseStartedAtFor(advanced.phase, now, advanced.roundIndex);
     return advanced;
   }
 
@@ -146,7 +151,7 @@ export function skipPhase(room: Room, pack: Pack, now: number): Room {
   if (!upcoming) return next;
 
   next.phase = upcoming;
-  next.phaseStartedAt = phaseStartedAtFor(upcoming, now);
+  next.phaseStartedAt = phaseStartedAtFor(upcoming, now, next.roundIndex);
   return next;
 }
 

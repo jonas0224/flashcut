@@ -9,6 +9,7 @@ import { GameImage } from "@/components/GameImage";
 import { PageShell } from "@/components/PageShell";
 import { PhaseBar } from "@/components/PhaseBar";
 import { PhasePanel } from "@/components/PhasePanel";
+import { PlayerRevealPanel } from "@/components/PlayerRevealPanel";
 import { RoundCountdown } from "@/components/RoundCountdown";
 import { useRoomPoll } from "@/hooks/useRoomPoll";
 import { PHASE_MS } from "@/lib/constants";
@@ -29,7 +30,7 @@ export default function PlayerRoomPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const guessRoundRef = useRef(-1);
+  const roundRef = useRef(-1);
 
   useEffect(() => {
     const session = getPlayerSession(code);
@@ -49,32 +50,16 @@ export default function PlayerRoomPage() {
     }
     if (state?.status === "finished") {
       router.replace(`/room/${code}/results`);
-      return;
     }
-    if (state?.status === "playing" && state.phase === "reveal") {
-      if (selected && state.yourAnswer == null) {
-        void refresh(true);
-        return;
-      }
-      router.replace(`/room/${code}/rankings`);
-    }
-  }, [
-    state?.status,
-    state?.phase,
-    state?.yourAnswer,
-    selected,
-    code,
-    router,
-    refresh,
-  ]);
+  }, [state?.status, code, router]);
 
   useEffect(() => {
-    if (state?.phase !== "guess") return;
-    if (state.roundIndex === guessRoundRef.current) return;
-    guessRoundRef.current = state.roundIndex;
+    if (!state) return;
+    if (state.roundIndex === roundRef.current) return;
+    roundRef.current = state.roundIndex;
     setSelected(null);
     setSubmitError(null);
-  }, [state?.roundIndex, state?.phase]);
+  }, [state?.roundIndex]);
 
   async function submitChoice(choice: string) {
     if (!token || state?.phase !== "guess" || selected !== null || submitting) return;
@@ -115,7 +100,10 @@ export default function PlayerRoomPage() {
     }
   }
 
-  if (!state || !token) {
+  const playerSession = getPlayerSession(code);
+  const hasCachedState = state != null;
+
+  if (!hasCachedState || !token) {
     return (
       <PageShell>
         <main className="flex flex-1 items-center justify-center">
@@ -125,11 +113,23 @@ export default function PlayerRoomPage() {
     );
   }
 
-  const playerSession = getPlayerSession(code);
   const me = state.players.find((p) => p.id === playerSession?.playerId);
   const score = me?.totalScore ?? 0;
   const phaseDuration = PHASE_MS[state.phase];
   const phaseKey = `${state.roundIndex}-${state.phase}`;
+  const isReveal = state.status === "playing" && state.phase === "reveal";
+
+  if (isReveal) {
+    return (
+      <PageShell hideFooter lockScroll>
+        <PlayerRevealPanel
+          state={state}
+          playerId={playerSession?.playerId}
+          nickname={me?.nickname}
+        />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>
@@ -141,18 +141,16 @@ export default function PlayerRoomPage() {
           score={score}
         />
 
-        {state.phase !== "flashcut" &&
-          state.phase !== "countdown" &&
-          state.phase !== "reveal" && (
-            <div className="mb-4 fc-phase-enter">
-              <PhaseBar
-                phaseEndsAt={state.phaseEndsAt}
-                durationMs={phaseDuration}
-                label={PHASE_LABELS[state.phase]}
-                urgentLastSeconds={state.phase === "guess" ? 3 : 0}
-              />
-            </div>
-          )}
+        {(state.phase === "peek" || state.phase === "guess") && (
+          <div className="mb-4 fc-phase-enter">
+            <PhaseBar
+              phaseEndsAt={state.phaseEndsAt}
+              durationMs={phaseDuration}
+              label={PHASE_LABELS[state.phase]}
+              urgentLastSeconds={state.phase === "guess" ? 3 : 0}
+            />
+          </div>
+        )}
 
         {state.phase === "countdown" && (
           <RoundCountdown

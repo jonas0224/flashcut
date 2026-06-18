@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { existsSync } from "fs";
 import { join } from "path";
-import { COUNTDOWN_SYNC_GRACE_MS, PHASE_MS, ROUND_COUNT } from "@/lib/constants";
+import { COUNTDOWN_FIRST_ROUND_GRACE_MS, COUNTDOWN_SYNC_GRACE_MS, PHASE_MS, ROUND_COUNT } from "@/lib/constants";
 import { advanceRoomOnce, allPlayersAnswered, maybeAdvanceAfterAnswer, phaseEndsAt, phaseStartedAtFor, scorePendingRound, shouldAdvance, skipPhase } from "@/lib/phase-engine";
 import { validatePack, validateRound, starterPack } from "@/lib/packs";
 import { getRoomPack } from "@/lib/room-pack";
@@ -93,7 +93,12 @@ describe("phase engine", () => {
 
   it("phaseStartedAtFor delays countdown start", () => {
     const now = 5000;
-    expect(phaseStartedAtFor("countdown", now)).toBe(now + COUNTDOWN_SYNC_GRACE_MS);
+    expect(phaseStartedAtFor("countdown", now, 0)).toBe(
+      now + COUNTDOWN_FIRST_ROUND_GRACE_MS,
+    );
+    expect(phaseStartedAtFor("countdown", now, 1)).toBe(
+      now + COUNTDOWN_SYNC_GRACE_MS,
+    );
     expect(phaseStartedAtFor("peek", now)).toBe(now);
   });
 

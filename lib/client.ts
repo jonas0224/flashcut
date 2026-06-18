@@ -78,16 +78,31 @@ export async function fetchAccessConfig(): Promise<{
   }>;
 }
 
+export type FetchRoomStateResult =
+  | { ok: true; state: RoomPublicState; version: number }
+  | { ok: false; notModified: true; version: number }
+  | { ok: false; notModified?: false };
+
 export async function fetchRoomState(
   code: string,
   token?: string,
-): Promise<RoomPublicState | null> {
+  ifNoneMatch?: number,
+): Promise<FetchRoomStateResult> {
   const headers: HeadersInit = {};
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (ifNoneMatch != null) headers["If-None-Match"] = `"${ifNoneMatch}"`;
 
   const res = await fetch(`/api/rooms/${code}`, { headers, cache: "no-store" });
-  if (!res.ok) return null;
-  return res.json() as Promise<RoomPublicState>;
+  if (res.status === 304) {
+    const etag = res.headers.get("etag");
+    const version = etag ? Number(etag.replace(/"/g, "")) : ifNoneMatch ?? 0;
+    return { ok: false, notModified: true, version };
+  }
+  if (!res.ok) return { ok: false };
+  const state = (await res.json()) as RoomPublicState;
+  const etag = res.headers.get("etag");
+  const version = etag ? Number(etag.replace(/"/g, "")) : 0;
+  return { ok: true, state, version };
 }
 
 export async function fetchHostRounds(

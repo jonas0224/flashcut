@@ -186,14 +186,17 @@ export function toPublicState(
 
   if (room.status !== "playing" || !round) return base;
 
-  if (room.phase === "countdown" && isHostViewer) {
-    return {
-      ...base,
-      choices: round.choices,
-      imageUrl: round.imageUrl,
-      imageMode: round.mode,
-      crop: round.crop,
-    };
+  if (room.phase === "countdown") {
+    if (isHostViewer) {
+      return {
+        ...base,
+        choices: round.choices,
+        imageUrl: round.imageUrl,
+        imageMode: round.mode,
+        crop: round.crop,
+      };
+    }
+    return base;
   }
 
   if (room.phase === "peek") {
@@ -230,6 +233,8 @@ export function toPublicState(
     };
   }
 
+  if (room.phase !== "reveal") return base;
+
   const lastResult = room.roundResults[room.roundResults.length - 1];
   const viewerAnswer = viewerPlayerId
     ? room.answers[viewerPlayerId]
@@ -259,10 +264,11 @@ export async function syncAndGetRoom(
   code: string,
   viewerPlayerId?: string,
   isHostViewer = false,
-): Promise<RoomPublicState | null> {
+  loadedRoom?: Room | null,
+): Promise<{ state: RoomPublicState; version: number } | null> {
   const now = Date.now();
 
-  let room = await loadRoom(code);
+  let room = loadedRoom ?? (await loadRoom(code));
   if (!room) return null;
   const pack = getRoomPack(room);
   if (!pack) return null;
@@ -277,14 +283,16 @@ export async function syncAndGetRoom(
     if (saved) {
       room = saved;
     } else {
-      // CAS lost — re-read Redis; do not tick a stale snapshot (can drop answers).
       const fresh = await loadRoom(code);
       if (fresh) room = fresh;
     }
   }
 
   const resolvedPack = getRoomPack(room) ?? pack;
-  return toPublicState(room, resolvedPack, now, viewerPlayerId, isHostViewer);
+  return {
+    state: toPublicState(room, resolvedPack, now, viewerPlayerId, isHostViewer),
+    version: room.version,
+  };
 }
 
 export async function startGame(

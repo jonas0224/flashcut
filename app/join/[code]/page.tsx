@@ -19,9 +19,15 @@ export default function JoinPage() {
   const [error, setError] = useState<string | null>(null);
   const [joined, setJoined] = useState(false);
   const [playerToken, setPlayerToken] = useState<string | null>(null);
+  const [localPlayer, setLocalPlayer] = useState<{
+    id: string;
+    nickname: string;
+  } | null>(null);
   const redirectingRef = useRef(false);
 
-  const { state, refresh } = useRoomPoll(code, playerToken, joined);
+  const { state, refresh } = useRoomPoll(code, playerToken, joined, {
+    lobbyFastPoll: true,
+  });
 
   useEffect(() => {
     router.prefetch(`/room/${code}`);
@@ -64,6 +70,7 @@ export default function JoinPage() {
         return;
       }
       savePlayerSession(code, data.playerId, data.playerToken);
+      setLocalPlayer({ id: data.playerId, nickname: data.nickname });
       setPlayerToken(data.playerToken);
       setJoined(true);
     } catch {
@@ -84,6 +91,19 @@ export default function JoinPage() {
   }
 
   if (joined) {
+    const lobbyPlayers = state?.players ?? [];
+    const displayPlayers =
+      localPlayer && !lobbyPlayers.some((p) => p.id === localPlayer.id)
+        ? [
+            ...lobbyPlayers,
+            {
+              id: localPlayer.id,
+              nickname: localPlayer.nickname,
+              totalScore: 0,
+            },
+          ]
+        : lobbyPlayers;
+
     return (
       <PageShell>
         <main className="mx-auto flex w-full max-w-2xl flex-col px-5 py-5 sm:px-8">
@@ -91,9 +111,9 @@ export default function JoinPage() {
           <h1 className="fc-room-code-hero mt-1 text-5xl">{code}</h1>
           <p className="fc-hero-subtitle mt-2 text-lg">Waiting for host to start…</p>
           <div className="fc-host-panel mt-5">
-            <LobbyPlayerChips players={state?.players ?? []} />
+            <LobbyPlayerChips players={displayPlayers} />
             <p className="mt-4 text-center text-lg font-semibold text-[#94a8c9]">
-              {(state?.players ?? []).length} players ready
+              {displayPlayers.length} players ready
             </p>
           </div>
         </main>

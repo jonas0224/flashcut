@@ -9,7 +9,8 @@ export const PHASE_MS: Record<Phase, number> = {
 };
 
 /** Buffer before countdown ticks — lets players load the play screen after redirects. */
-export const COUNTDOWN_SYNC_GRACE_MS = 3500;
+export const COUNTDOWN_FIRST_ROUND_GRACE_MS = 6500;
+export const COUNTDOWN_SYNC_GRACE_MS = 4000;
 
 /** Phases that only advance when the host presses Next (no auto timer). */
 export const HOST_ADVANCE_PHASES: Phase[] = ["reveal"];

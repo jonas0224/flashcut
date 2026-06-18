@@ -23,16 +23,19 @@ export function RoundCountdown({
   const totalSeconds = Math.max(1, Math.round(durationMs / 1000));
   const [remainingMs, setRemainingMs] = useState(durationMs);
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
+  const [inGrace, setInGrace] = useState(false);
 
   useEffect(() => {
     if (waitingForHost) return;
     const tick = () => {
       const now = Date.now();
       if (now < phaseStartedAt) {
+        setInGrace(true);
         setRemainingMs(durationMs);
         setSecondsLeft(totalSeconds);
         return;
       }
+      setInGrace(false);
       const remaining = Math.max(0, phaseEndsAt - now);
       const elapsedSec = Math.floor((now - phaseStartedAt) / 1000);
       const left = Math.max(0, totalSeconds - elapsedSec);
@@ -99,7 +102,11 @@ export function RoundCountdown({
       </div>
 
       <p className="fc-countdown-subtitle">
-        {isGo ? "Let's go!" : "Get ready…"}
+        {inGrace
+          ? "Round starting…"
+          : isGo
+            ? "Let's go!"
+            : "Get ready…"}
       </p>
     </div>
   );
