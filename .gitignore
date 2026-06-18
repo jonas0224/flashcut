@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+.next/
+out/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Debug
+npm-debug.log*
+.DS_Store
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Vitest
+coverage/
+
+# Host-uploaded round images (local dev)
+public/uploads/
+
+# Local IDE workspace (do not commit)
+.cursor/
+.cursorignore
+.vscode/

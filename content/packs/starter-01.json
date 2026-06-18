@@ -1,0 +1,106 @@
+{
+  "id": "starter-01",
+  "name": "Starter pack — funny (10 rounds)",
+  "rounds": [
+    {
+      "id": "funny-dog-shades-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/dog-sunglasses.jpg",
+      "crop": { "x": 0.5, "y": 0.35, "scale": 5 },
+      "choices": [
+        "Dog in sunglasses",
+        "Wet cat",
+        "Baby sloth",
+        "Parrot"
+      ],
+      "answer": "Dog in sunglasses",
+      "category": "animals"
+    },
+    {
+      "id": "funny-rubber-duck-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/rubber-duck.jpg",
+      "crop": { "x": 0.55, "y": 0.45, "scale": 4 },
+      "choices": ["Rubber duck", "Lemon", "Goldfish", "Tennis ball"],
+      "answer": "Rubber duck",
+      "category": "objects"
+    },
+    {
+      "id": "funny-llama-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/llama.jpg",
+      "crop": { "x": 0.5, "y": 0.4, "scale": 5 },
+      "choices": ["Llama", "Giraffe", "Camel", "Horse"],
+      "answer": "Llama",
+      "category": "animals"
+    },
+    {
+      "id": "funny-cat-yawn-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/cat-yawn.jpg",
+      "crop": { "x": 0.55, "y": 0.45, "scale": 5 },
+      "choices": ["Yawning cat", "Sleeping dog", "Fox", "Raccoon"],
+      "answer": "Yawning cat",
+      "category": "animals"
+    },
+    {
+      "id": "funny-donut-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/donut.jpg",
+      "crop": { "x": 0.5, "y": 0.5, "scale": 4 },
+      "choices": ["Glazed donut", "Pizza", "Bagel", "Cookie"],
+      "answer": "Glazed donut",
+      "category": "food"
+    },
+    {
+      "id": "funny-burger-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/burger.jpg",
+      "crop": { "x": 0.5, "y": 0.45, "scale": 5 },
+      "choices": ["Cheeseburger", "Taco", "Sushi roll", "Hot dog"],
+      "answer": "Cheeseburger",
+      "category": "food"
+    },
+    {
+      "id": "funny-dino-costume-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/dinosaur-costume.jpg",
+      "crop": { "x": 0.5, "y": 0.4, "scale": 4 },
+      "choices": [
+        "Inflatable T-rex",
+        "Gorilla suit",
+        "Banana costume",
+        "Wizard robe"
+      ],
+      "answer": "Inflatable T-rex",
+      "category": "world"
+    },
+    {
+      "id": "funny-dogs-running-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/dogs-running.jpg",
+      "crop": { "x": 0.45, "y": 0.55, "scale": 5 },
+      "choices": ["Dogs running", "Cats playing", "Horses galloping", "Birds flying"],
+      "answer": "Dogs running",
+      "category": "animals"
+    },
+    {
+      "id": "funny-sloth-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/sloth.jpg",
+      "crop": { "x": 0.5, "y": 0.4, "scale": 6 },
+      "choices": ["Sloth", "Monkey", "Koala", "Lemur"],
+      "answer": "Sloth",
+      "category": "animals"
+    },
+    {
+      "id": "funny-capybara-01",
+      "mode": "zoom",
+      "imageUrl": "/packs/starter-01/capybara.jpg",
+      "crop": { "x": 0.55, "y": 0.45, "scale": 5 },
+      "choices": ["Capybara", "Beaver", "Guinea pig", "Hippopotamus"],
+      "answer": "Capybara",
+      "category": "animals"
+    }
+  ]
+}

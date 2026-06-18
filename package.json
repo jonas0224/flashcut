@@ -1,0 +1,35 @@
+{
+  "name": "flashcut",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "smoke:local": "tsx scripts/smoke-local.ts"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.36.3",
+    "next": "16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "16.2.4",
+    "tailwindcss": "^4",
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20 <23"
+  }
+}
