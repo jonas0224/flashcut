@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CopyInviteLink } from "@/components/CopyInviteLink";
 import { PageShell } from "@/components/PageShell";
 import { StandingsList } from "@/components/StandingsList";
 import { useRoomPoll } from "@/hooks/useRoomPoll";
@@ -73,7 +74,7 @@ export default function HostPage() {
             href={`/join/${code}`}
             className="fc-btn-secondary px-4 py-2 text-sm"
           >
-            Player join link →
+            Open join page →
           </Link>
         </header>
 
@@ -90,6 +91,7 @@ export default function HostPage() {
 
         {state.status === "lobby" && (
           <section className="fc-panel mb-8">
+            <CopyInviteLink code={code} className="mb-6" />
             <p className="mb-4 text-lg text-blue-900">
               Share code{" "}
               <strong className="text-3xl font-black text-blue-600">
